@@ -1,0 +1,46 @@
+module.exports = {
+  expo: {
+    name: "Fieldkit · Network Diagnostics",
+    slug: "network-diagnostics-suite",
+    version: "1.0.0",
+    orientation: "portrait",
+    userInterfaceStyle: "light",
+    newArchEnabled: false,
+    android: {
+      package: "ar.edu.fcyt.fieldkit",
+      versionCode: 1,
+      permissions: [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "ACCESS_WIFI_STATE",
+        "CHANGE_WIFI_MULTICAST_STATE",
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+      ],
+      blockedPermissions: ["android.permission.RECORD_AUDIO"],
+    },
+    plugins: [
+      [
+        "expo-camera",
+        {
+          cameraPermission:
+            "Permitir fotos de la instalación y lectura de códigos.",
+          recordAudioAndroid: false,
+          barcodeScannerEnabled: true,
+        },
+      ],
+      [
+        "expo-location",
+        {
+          locationWhenInUsePermission:
+            "Georreferenciar la instalación y sus fotografías.",
+        },
+      ],
+      "expo-secure-store",
+      "./plugins/withAndroidNetwork",
+    ],
+    web: { bundler: "metro", name: "Fieldkit" },
+    extra: { scope: "Android native build. Expo Go no soportado." },
+  },
+};
