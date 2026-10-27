@@ -2,6 +2,12 @@
 
 Adaptación: 27 de octubre de 2026.
 
+## Compatibilidad del iPhone
+
+La captura del teléfono confirmó Expo Go SDK 58.0.0 y el rechazo del proyecto SDK 54. Se actualizó el proyecto a Expo 58.0.20, React Native 0.88.0, React 19.3.0 y las versiones correspondientes de cámara, ubicación, archivos, impresión, almacenamiento seguro y SQLite. TypeScript 6 y Babel también se alinearon. `expo-doctor` aprobó sus 20 comprobaciones y `expo install --check` no detectó versiones fuera de rango.
+
+El proyecto Android generado con SDK 54 se conserva en `legacy/android-sdk54/`, fuera de la aplicación actual. Se mantiene el mismo enlace LAN de Expo; el launcher muestra y registra el SDK que está sirviendo para evitar reutilizar por error un servidor anterior.
+
 ## Comprobado en la computadora
 
 - TypeScript estricto sin errores: `npm run typecheck`.

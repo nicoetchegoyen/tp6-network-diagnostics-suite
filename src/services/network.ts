@@ -1,4 +1,4 @@
-import { requireOptionalNativeModule } from "expo-modules-core";
+import { requireOptionalNativeModule } from "expo";
 import { Buffer } from "buffer";
 import { Device, Settings, uid } from "../domain/types";
 import { subnetHosts } from "../domain/network";

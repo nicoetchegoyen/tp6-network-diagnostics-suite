@@ -15,9 +15,11 @@ android/app/build/
 **/.kotlin/
 *.salive
 android/local.properties
+legacy/**/local.properties
 *.log
 *.hprof
 *.dmp
 .env
 *.keystore
 !android/app/debug.keystore
+!legacy/android-sdk54/app/debug.keystore

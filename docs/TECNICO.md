@@ -6,7 +6,7 @@ Adaptación del 27 de octubre de 2026 para iPhone con Expo Go. La implementació
 
 | Capa           | Implementación actual                                                  |
 | -------------- | ---------------------------------------------------------------------- |
-| Interfaz       | React Native 0.81.5 / React 19 / TypeScript, Expo SDK 54               |
+| Interfaz       | React Native 0.88 / React 19.3 / TypeScript, Expo SDK 58               |
 | Descubrimiento | Cliente HTTP de la app; mDNS Bonjour y sockets TCP/UDP en Node         |
 | Protocolo      | BER/ASN.1 SNMP propio en la app; transporte de bytes mediante la PC    |
 | SSH            | `ssh2` en la PC, comandos cerrados y huella SHA-256 aceptada en la app |

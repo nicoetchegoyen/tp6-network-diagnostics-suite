@@ -8,6 +8,13 @@ import { fileURLToPath } from "node:url";
 import QRCode from "qrcode";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const expoVersion = JSON.parse(
+  await fs.readFile(
+    path.join(root, "node_modules", "expo", "package.json"),
+    "utf8",
+  ),
+).version;
+const sdkVersion = `${expoVersion.split(".")[0]}.0.0`;
 await fs.mkdir(path.join(root, ".cache"), { recursive: true });
 const tokenFile = path.join(root, ".cache", "companion-token");
 let token;
@@ -50,12 +57,13 @@ await QRCode.toFile(
 await fs.writeFile(
   path.join(root, ".cache", "expo-connection.json"),
   JSON.stringify(
-    { url: `exp://${ip}:${metroPort}`, backend, metroPort },
+    { url: `exp://${ip}:${metroPort}`, backend, metroPort, sdkVersion },
     null,
     2,
   ),
 );
 console.log(`\nFieldkit para Expo Go · iPhone y PC en la misma Wi-Fi`);
+console.log(`Expo SDK ${sdkVersion} · Expo ${expoVersion}`);
 console.log(`Servidor y puente de red: ${backend}`);
 console.log(`QR guardado en deliverables/expo-go-qr.png`);
 console.log(`El servidor y su acceso se configuran automáticamente en la app.`);

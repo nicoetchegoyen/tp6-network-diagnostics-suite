@@ -18,7 +18,7 @@ npm start
 
 Mantener la terminal abierta. `Ctrl+C` detiene Expo y su servidor. El QR apunta al servidor de desarrollo de la computadora; no publica una aplicación permanente en una tienda. Si Expo Go solicita iniciar sesión, usar la misma cuenta de Expo en el teléfono y en Expo CLI.
 
-Se conserva **Expo SDK 54**, compatible con la versión de Expo Go de la App Store documentada por Expo. Las dependencias se fijan en el lockfile. Requisitos de la computadora: Node.js 20.19+ y npm; entorno verificado con Node 24.
+El proyecto usa **Expo SDK 58** para coincidir con Expo Go SDK 58.0.0 instalado en el iPhone del usuario. La versión de la app y la de Expo Go deben coincidir. Las dependencias se fijan en el lockfile. Requisitos recomendados de la computadora: Node.js 24.3+ y npm; entorno verificado con Node 24.15. [Guía oficial de actualización](https://docs.expo.dev/workflow/upgrading-expo-sdk-walkthrough/).
 
 ## Qué funciona y dónde
 
@@ -66,4 +66,4 @@ Las pruebas usan sockets UDP y un servidor SSH real de prueba en loopback, adem�
 - `docs/VERIFICACION.md`: comprobaciones y pendientes físicos.
 - `backend/server.mjs` y `backend/network.mjs`: sincronización y puente.
 
-El APK `deliverables/fieldkit-1.0.0.apk` y el módulo Kotlin son artefactos de la versión Android anterior. Ese APK no contiene la adaptación actual y no se utiliza en el iPhone. Los scripts Android se conservan como referencia de esa versión.
+El APK `deliverables/fieldkit-1.0.0.apk` y el módulo Kotlin son artefactos de la versión Android anterior. Ese APK no contiene la adaptación actual y no se utiliza en el iPhone. El proyecto nativo anterior se conserva en `legacy/android-sdk54/`; sus scripts se reproducen desde la revisión histórica indicada en `legacy/README.md`.

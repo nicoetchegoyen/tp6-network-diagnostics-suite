@@ -9,5 +9,5 @@
     "types": ["node"]
   },
   "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules", "android", ".cache", ".tools"]
+  "exclude": ["node_modules", "android", "legacy", ".cache", ".tools"]
 }
