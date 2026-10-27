@@ -8,7 +8,7 @@ export async function generateReport(
   installation: Installation,
 ): Promise<string> {
   if (!FileSystem.documentDirectory)
-    throw new Error("Generar PDF con fotos requiere el APK Android.");
+    throw new Error("Generá el PDF desde Expo Go en tu teléfono.");
   const device = await store.get<Device>("device", installation.deviceId);
   const diagnostics = (await store.all<Diagnostic>("diagnostic"))
     .filter(

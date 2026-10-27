@@ -5,6 +5,7 @@ import { subnetHosts } from "../domain/network";
 import { encodeMessage, OIDS, SnmpClient } from "../protocol/snmp";
 import { diagnosticCommand, Vendor } from "../protocol/commands";
 import { secrets } from "./secure";
+import { createNetworkGateway } from "./gateway";
 type Found = Pick<Device, "ip" | "ports" | "source"> & Partial<Device>;
 type Bridge = {
   networkInfo(): Promise<{ ip?: string; prefix: number }>;
@@ -43,12 +44,14 @@ type Bridge = {
   ): { remove(): void };
 };
 const bridge = requireOptionalNativeModule<Bridge>("FieldNetwork");
+export const directNetworkAvailable = !!bridge;
+let getBackendUrl = () => "";
+export function configureNetwork(getUrl: () => string) {
+  getBackendUrl = getUrl;
+}
+const gateway = createNetworkGateway(() => getBackendUrl());
 export function nativeNetwork(): Bridge {
-  if (!bridge)
-    throw new Error(
-      "Esta función requiere el APK Android. No está disponible en Expo Go ni en la vista web.",
-    );
-  return bridge;
+  return bridge || gateway;
 }
 export const snmp = new SnmpClient(async (host, port, packet, timeout) =>
   Buffer.from(
@@ -109,7 +112,7 @@ export async function discover(
     }
     return [...map.values()].map((d) => ({
       ...d,
-      id: d.mac || `ip-${d.ip}`,
+      id: uid(),
       name: d.hostname || d.ip,
       lastSeen: Date.now(),
       site: settings.site,

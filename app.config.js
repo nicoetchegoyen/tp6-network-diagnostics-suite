@@ -5,7 +5,16 @@ module.exports = {
     version: "1.0.0",
     orientation: "portrait",
     userInterfaceStyle: "light",
-    newArchEnabled: false,
+    newArchEnabled: true,
+    ios: {
+      bundleIdentifier: "ar.edu.fcyt.fieldkit",
+      supportsTablet: true,
+      infoPlist: {
+        NSLocalNetworkUsageDescription:
+          "Conectar con el servidor de Fieldkit en tu computadora para diagnósticos y sincronización.",
+        NSAppTransportSecurity: { NSAllowsLocalNetworking: true },
+      },
+    },
     android: {
       package: "ar.edu.fcyt.fieldkit",
       versionCode: 1,
@@ -41,6 +50,9 @@ module.exports = {
       "./plugins/withAndroidNetwork",
     ],
     web: { bundler: "metro", name: "Fieldkit" },
-    extra: { scope: "Android native build. Expo Go no soportado." },
+    extra: {
+      scope:
+        "Expo Go iOS/Android. Diagnósticos de red mediante el puente de la computadora.",
+    },
   },
 };

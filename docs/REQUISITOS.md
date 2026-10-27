@@ -1,46 +1,30 @@
-# Matriz de trazabilidad
+# Comparación de requisitos · adaptación Expo Go
 
-Esta matriz distingue implementación de verificación de campo. El código no incluye dispositivos ni mediciones ficticias precargadas.
+El usuario pidió priorizar **iPhone con Expo Go**. Esto modifica el destino de ejecución y algunas decisiones técnicas del PDF. La tabla distingue capacidades disponibles y cambios de arquitectura; no declara equivalencia completa con la consigna Android original.
 
-| ID    | Requisito                                  | Resolución                                                                                                              | Evidencia / límite                                                                                                                  |
-| ----- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| RF-01 | Descubrir hosts y listar IP, MAC, hostname | NsdManager/mDNS, pool TCP/UDP, caché ARP y alta manual. Lista persistente y progreso/cancelación.                       | Pruebas de CIDR. MAC y hostname se muestran si el sistema los proporciona. El descubrimiento físico necesita prueba en LAN.         |
-| RF-02 | SNMP: uptime, sysName y tráfico            | Encoder/parser BER propio, v1/v2c, UDP, GET y GETNEXT de índices de interfaces.                                         | Vector BER independiente, parser truncado, correlación y consulta real UDP loopback. Pendiente contraste con un equipo SNMP físico. |
-| RF-03 | SSH con comandos de diagnóstico            | Bridge JSch, catálogo Linux/OpenWrt/MikroTik/Cisco, pinning de clave y cierre de sesión.                                | Lista validada en JS/Kotlin. Prueba con equipo SSH de campo pendiente.                                                              |
-| RF-04 | QR/barras y ficha remota                   | Cámara/ML Kit, extracción segura del código, catálogo remoto, caché local.                                              | Asociación y consulta de ficha comprobadas en UI web mediante código manual. Cámara/lectura física requiere Android.                |
-| RF-05 | Instalación, fotos, GPS y notas            | Formulario validado, borrador persistente, fotos en documentos privados y coordenadas individuales con precisión/fecha. | Código implementado. Captura/precisión requieren teléfono y permisos.                                                               |
-| RF-06 | Reporte PDF                                | A4 offline con imágenes base64, ubicación y diagnósticos; archivo persistente y compartir.                              | Generador implementado. Validación visual de un reporte capturado en Android pendiente.                                             |
-| RF-07 | Operación offline y outbox                 | Entidad+acción atómicas en WatermelonDB, worker con recuperación, backoff, recibos idempotentes y conflictos.           | Tests del motor/backend y guardado/recarga/envío desde UI. Sin servicio permanente al cerrar la app.                                |
-| RF-08 | Historial por equipo/sitio offline         | Diagnósticos exitosos y fallidos persistidos, búsqueda por equipo/IP/sitio/protocolo y detalle.                         | Alta y recarga del registro comprobadas en UI.                                                                                      |
+| Requisito                         | Implementación para Expo Go                                                        | Límite / estado de comprobación                                                                                                                        |
+| --------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| RF01 · Descubrimiento LAN         | mDNS y sondeo TCP/UDP desde la PC, lista en el iPhone                              | Requiere puente y acceso de la PC a la LAN. MAC no disponible; hostname solo si mDNS lo publica. No prueba el estado de la LAN del iPhone por sí sola. |
+| RF02 · SNMP uptime/nombre/tráfico | BER propio en TypeScript y UDP real mediante la PC                                 | Protocolo y transporte probados con agente UDP en loopback; pendiente equipo de campo.                                                                 |
+| RF03 · SSH                        | Sesión real desde la PC, huella fijada, comandos cerrados                          | Handshake, rechazo de huella y ejecución probados con servidor SSH local. Pendiente router real.                                                       |
+| RF04 · QR/barras y ficha          | expo-camera en iPhone, catálogo remoto y caché                                     | Lectura física pendiente; catálogo de ejemplo reducido.                                                                                                |
+| RF05 · Instalación/foto/GPS/notas | Captura y archivos privados en Expo Go, borrador persistente                       | Requiere permisos y prueba en iPhone.                                                                                                                  |
+| RF06 · PDF                        | expo-print con fotos base64, GPS y compartir                                       | Paquete iOS compilado; captura y revisión del PDF en teléfono pendientes.                                                                              |
+| RF07 · Offline/outbox             | SQLite de Expo, escrituras atómicas, reintentos sin agotarse, NetInfo y conflictos | Repositorio/motor/backend probados. Funciona con app activa; no servicio permanente con Expo Go cerrado.                                               |
+| RF08 · Historial por equipo/sitio | Registros offline y IDs separados por sitio                                        | Regresión de IP repetida entre sitios probada.                                                                                                         |
 
-## Requisitos técnicos y arquitectura
+## Cambios frente a la consigna original
 
-| Punto de consigna                             | Implementación                                                                                 |
-| --------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| React Native                                  | React Native 0.81.5, React 19, TypeScript, proyecto Android generado y conservado              |
-| TCP/UDP sin abstracción HTTP para diagnóstico | Sockets Java/Kotlin, bridge local Expo Modules                                                 |
-| mDNS/Bonjour y/o ARP-like                     | NsdManager, TCP scan, lectura de caché ARP cuando está permitida                               |
-| Paquetes SNMP propios                         | `src/protocol/snmp.ts`, BER/ASN.1 manual                                                       |
-| SSH embebido                                  | `modules/field-network/.../FieldNetworkModule.kt` y catálogo de comandos                       |
-| No guardar contraseñas en texto plano         | SecureStore/Android Keystore; recordar optativo; eliminación disponible                        |
-| Fotos y lector QR                             | expo-camera / ML Kit, equivalente del stack sugerido                                           |
-| GPS                                           | expo-location, equivalente del stack sugerido                                                  |
-| PDF                                           | expo-print y HTML propio, equivalente del stack sugerido                                       |
-| WatermelonDB                                  | SQLite nativo, escritores y batches atómicos; adaptador LokiJS/IndexedDB solo para preview web |
-| Outbox persistente y NetInfo                  | Motor propio probado, conectividad LAN, resolución de conflictos y reintento                   |
-| Capas separadas                               | Módulos de dominio, protocolos, almacenamiento, servicios, reporting, sync y UI                |
-| Flujo incluye SNMP inicial                    | Se consulta cada equipo encontrado por el escaneo                                              |
-| Registro incluye PDF y cola                   | Se persiste primero; se genera PDF y queda acción con reintento ante error                     |
+| Punto                                              | Adaptación explícita                                                                                             |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| APK de prueba / no Expo Go                         | Se prioriza abrir mediante QR en Expo Go, por pedido del usuario. El APK anterior no representa esta adaptación. |
+| TCP/UDP y SSH embebidos en el teléfono             | Se trasladan a un puente Node en la computadora, accedido por HTTP/HTTPS.                                        |
+| WatermelonDB                                       | Se reemplaza por expo-sqlite y un repositorio propio, porque WatermelonDB requiere código nativo adicional.      |
+| React Native, SNMP propio, evidencia, PDF y outbox | Se conservan las funcionalidades y la separación por capas.                                                      |
+| Video de campo                                     | Se graba con el iPhone y se muestra explícitamente que la PC ejecuta los diagnósticos. Pendiente.                |
 
-## Entregables
+Los cambios permiten usar el hardware disponible, pero no satisfacen literalmente los puntos de APK, WatermelonDB y transporte directo del teléfono. Esta distinción debe acompañar la presentación académica.
 
-| Entregable                       | Archivo / estado                                                                                          |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Código fuente en repositorio Git | Repositorio local inicializado en esta carpeta; sin publicación remota                                    |
-| APK de prueba                    | `deliverables/fieldkit-1.0.0.apk`, release arm64-v8a de 29,66 MiB; compilación y firma verificadas              |
-| Documento técnico                | `docs/TECNICO.md`                                                                                         |
-| Backend mínimo                   | `backend/server.mjs`, persistencia e integración de adjuntos                                              |
-| Video demo con equipo real       | Guía en `docs/DEMO.md`. No se presenta una simulación como evidencia física; grabación de campo pendiente |
-| Verificación de entrega          | `docs/VERIFICACION.md`                                                                                    |
+## Archivos de entrega
 
-No se requieren servicios pagos ni credenciales externas para ejecutar las pruebas del protocolo y del backend. Para las pruebas físicas se requiere un equipo con SNMP v1/v2c habilitado y un servidor SSH administrado por el técnico.
+Fuente Git local, `README.md`, documentos de esta carpeta, backend y launcher `npm start`. El QR se regenera en `deliverables/expo-go-qr.png`. No se requiere una cuenta paga ni publicar en App Store para este flujo. La conexión al servidor de desarrollo debe mantenerse para cargar la app en Expo Go; una vez cargada, los registros y reportes locales pueden usarse sin el backend.

@@ -1,88 +1,69 @@
 # Fieldkit · Network Diagnostics Suite
 
-Aplicación Android en **React Native + TypeScript**, desarrollada a partir de `TP6_Network_Diagnostics_Suite.pdf`. El proyecto incluye código nativo Kotlin, cliente SNMP propio, almacenamiento WatermelonDB, backend persistente, pruebas y documentación.
+Aplicación React Native y TypeScript adaptada para **iPhone con Expo Go**, por pedido del usuario. No requiere Android, Xcode ni una cuenta paga de Apple para abrirla desde Expo Go instalado desde la tienda.
 
-## Inicio rápido
+## Abrir en el iPhone
 
-Requisitos: Node.js 20.19 o superior, npm, JDK 17 y Android SDK 36. Se usó Node 24. El lockfile fija las dependencias. No funciona con Expo Go: utiliza sockets y SSH nativos.
+1. Conectar el iPhone y la computadora a la misma red Wi-Fi/LAN.
+2. En esta carpeta, ejecutar:
 
 ```powershell
 npm ci
-npm test
+npm start
+```
+
+3. Escanear el QR de la terminal con la **cámara del iPhone** y abrir en Expo Go. El mismo QR se guarda en `deliverables/expo-go-qr.png`.
+4. Aceptar el permiso de **red local** si iOS lo solicita. Cámara y ubicación se solicitan al usar esas funciones.
+5. En Ajustes, completar **técnico y sitio de trabajo**. El servidor y su acceso se configuran automáticamente al iniciar con `npm start`.
+
+Mantener la terminal abierta. `Ctrl+C` detiene Expo y su servidor. El QR apunta al servidor de desarrollo de la computadora; no publica una aplicación permanente en una tienda. Si Expo Go solicita iniciar sesión, usar la misma cuenta de Expo en el teléfono y en Expo CLI.
+
+Se conserva **Expo SDK 54**, compatible con la versión de Expo Go de la App Store documentada por Expo. Las dependencias se fijan en el lockfile. Requisitos de la computadora: Node.js 20.19+ y npm; entorno verificado con Node 24.
+
+## Qué funciona y dónde
+
+| En el iPhone con Expo Go                   | Mediante la computadora                                 |
+| ------------------------------------------ | ------------------------------------------------------- |
+| Alta manual de equipos y sitios            | Descubrimiento mDNS y sondeo TCP/UDP de la LAN de la PC |
+| Cámara, QR y códigos de barras             | Transporte de datagramas SNMP reales a los equipos      |
+| GPS y notas de instalación                 | Sesiones SSH reales con verificación de huella          |
+| PDF con fotos y ubicación, compartir       | Catálogo remoto y sincronización persistente            |
+| SQLite, historial, borrador y cola offline | Recepción de fotos y PDF para respaldarlos              |
+
+El encoder/parser SNMP sigue siendo propio y se ejecuta en TypeScript en la app. El puente transporta sus bytes por UDP desde la PC. **No se presentan mediciones simuladas como reales.** La app informa que el diagnóstico sale de la computadora. Sin puente, se pueden registrar equipos, capturar evidencia, generar reportes y consultar el historial; las consultas de red muestran el error correspondiente.
+
+Esta adaptación cambia la arquitectura pedida originalmente en el PDF: Expo Go no admite agregar módulos nativos propios. El puente HTTP sustituye el acceso directo a sockets/SSH desde el celular, SQLite de Expo sustituye WatermelonDB y el destino principal es Expo Go, en lugar del APK. Ver la comparación explícita en `docs/REQUISITOS.md`.
+
+## Si no conecta
+
+- Revisar que la computadora siga ejecutando `npm start` y que no haya aislamiento de clientes en el Wi-Fi.
+- En iOS, habilitar Red local para Expo Go. Si Windows solicita acceso a Node, permitirlo en la red privada usada para la prueba.
+- La terminal muestra la dirección del servidor. `localhost` y `127.0.0.1` en el iPhone apuntan al propio teléfono, no a la PC.
+- Si hay varias interfaces/VPN y Expo elige otra red, iniciar con `$env:REACT_NATIVE_PACKAGER_HOSTNAME='IP_DE_LA_PC'` antes de `npm start`.
+- La URL cambia si cambia la IP de la PC. Reiniciar `npm start` genera un QR nuevo; revisar la URL guardada en Ajustes si ya se había usado otra.
+- El inicio usa puerto 8083 para Expo y el primero libre entre 8787 y 8797 para el servidor. Se pueden fijar `EXPO_PORT` y `FIELDKIT_PORT`.
+
+El token del laboratorio se genera en `.cache/companion-token`, se reutiliza al reiniciar y se entrega a la app como variable pública de desarrollo. Es una clave de emparejamiento de este entorno local; no es un secreto de producción. No se versiona. El puente solo acepta IPv4 privadas/loopback y comandos de consulta predefinidos. Usar HTTPS y autenticación adecuada antes de exponerlo fuera de la LAN.
+
+## Comprobaciones
+
+```powershell
 npm run typecheck
-npm run backend
-```
-
-En otra terminal, para desarrollo con un Android conectado y depuración USB habilitada:
-
-```powershell
-npm run android
-```
-
-El APK de prueba, cuando se compila, se copia a `deliverables/fieldkit-1.0.0.apk`. Se instala sin Metro y funciona offline. Es una compilación release con firma **de desarrollo**; no es una firma de distribución comercial. Su ABI es **arm64-v8a**.
-
-```powershell
-npm run build:apk
-```
-
-Si no tenés JDK/SDK instalados, `scripts/bootstrap-android.ps1` prepara un toolchain aislado dentro de `.tools/`. Descarga OpenJDK y Android SDK y acepta las licencias necesarias para el entorno local de compilación. No modifica variables globales ni requiere Android Studio. Se aconseja disponer de al menos 10 GB libres y cerrar tareas pesadas al compilar.
-
-## Primer uso
-
-1. Conectar el teléfono al Wi-Fi del sitio. La LAN puede funcionar sin Internet.
-2. Abrir Ajustes y completar técnico y sitio. Para el backend, usar la **IP LAN de la PC**, por ejemplo `http://192.168.1.10:8787`. `localhost` en el teléfono apunta al teléfono.
-3. Configurar community, versión SNMP, puerto UDP y timeout. Para equipos reales, el puerto habitual es 161.
-4. Escanear la subred. Se combinan mDNS/Bonjour y sondeo TCP/UDP. Cada equipo encontrado recibe una consulta SNMP inicial. También se puede agregar una IP manualmente.
-5. Abrir un equipo para consultar interfaces, ejecutar comandos SSH y asociar un QR/código de barras a una ficha técnica.
-6. Registrar una instalación con sitio, técnico, notas, GPS y al menos una foto. El reporte PDF se genera y se conserva localmente.
-7. Revisar la cola. La sincronización se dispara al reconectar, al volver a primer plano y cada 20 segundos mientras la app está activa. No requiere que Internet funcione si el backend está en la LAN.
-
-En SSH hay que verificar la huella SHA-256 del servidor con una fuente confiable antes de aceptarla. Solo se envía la contraseña si la clave presentada coincide con la huella aceptada. La opción “Recordar en Keystore” es optativa y puede revocarse desde la ficha del equipo.
-
-## Backend de laboratorio
-
-Sin dependencias externas. Persiste entidades y recibos en `backend/data/state.json`; los adjuntos se guardan por hash SHA-256 en `backend/data/assets/`.
-
-```powershell
-$env:SYNC_TOKEN = 'un-token-de-laboratorio'
-npm run backend
-```
-
-Copiar el mismo token en Ajustes. Si no se configura, el stub funciona sin autenticación. El servicio escucha en `0.0.0.0:8787`; las reglas del firewall de Windows pueden requerir habilitar acceso desde la red privada. No es un backend listo para exposición pública. Usar HTTPS para despliegues fuera del laboratorio.
-
-| Ruta                     | Uso                                                      |
-| ------------------------ | -------------------------------------------------------- |
-| `GET /v1/health`         | Disponibilidad y cantidad de entidades                   |
-| `GET /v1/catalog/:code`  | Ficha técnica; ejemplos `RB750GR3`, `HG8245H`, `LAB-001` |
-| `POST /v1/sync`          | Acción idempotente con versión base y adjuntos           |
-| `GET /v1/entities`       | Inspección de registros recibidos                        |
-| `GET /v1/assets/:sha256` | Descarga autenticada de un adjunto                       |
-
-La ficha es un catálogo mínimo de prueba, no una integración con una API comercial de fabricantes. Un código desconocido se asocia al equipo aunque todavía no tenga ficha; se puede volver a consultar cuando exista conectividad. Un QR puede contener texto, JSON con `serial`/`code`/`model`, o una URL con identificador. La aplicación extrae el código y no navega automáticamente a la URL del QR.
-
-## Agente SNMP para pruebas reproducibles
-
-```powershell
-npm run lab
-```
-
-En la app, agregar la IP de la PC y configurar UDP **1161**, community `public`, SNMP v2c. El agente devuelve el hostname real de la PC y dos interfaces de **laboratorio** con contadores sintéticos, identificadas como tales. El agente sirve para validar el transporte y el parser, y no sustituye la prueba final con un router, ONT o switch real.
-
-## Verificaciones
-
-```powershell
 npm test
-npm run typecheck
-npx expo export --platform web --max-workers 2
+npx expo install --check
+npx expo export --platform ios --output-dir tmp/expo-go-ios
 ```
 
-Las pruebas verifican un vector BER independiente, paquetes truncados, OIDs multi-byte, Counter64, correlación de respuestas, GETNEXT, transporte UDP real en loopback, reintentos, concurrencia, conflictos, autenticación HTTP, persistencia tras reiniciar el backend y recepción de adjuntos. La vista web permite revisar navegación y formularios con WatermelonDB/IndexedDB. No tiene acceso a sockets, SSH, evidencia persistente ni generación nativa de PDF; no presenta mediciones simuladas como reales.
+Las pruebas usan sockets UDP y un servidor SSH real de prueba en loopback, además de verificar persistencia, atomicidad, reintentos prolongados y conflictos. No equivalen a haber usado la cámara/GPS de un iPhone físico; la comprobación final se hace al escanear el QR.
 
-## Documentación y entrega
+`npm run lab` inicia el agente SNMP incluido en UDP/1161. Sus contadores son fixtures identificados como laboratorio. Configurar puerto 1161 en la app y agregar la IP de la computadora para probar el transporte. Para medir un router real, usar su IP, su community y el puerto configurado en ese equipo.
 
-- [Documento técnico](docs/TECNICO.md): arquitectura, SNMP, credenciales, outbox, seguridad y límites.
-- [Matriz de requisitos](docs/REQUISITOS.md): trazabilidad de RF-01 a RF-08 y entregables.
-- [Guía de prueba y video](docs/DEMO.md): validación de campo paso a paso, criterios de aceptación y grabación.
-- [Estado de verificación](docs/VERIFICACION.md): resultados observados y verificaciones que necesitan hardware.
+## Archivos
 
-La validación final de descubrimiento en una LAN física, SSH contra equipos de campo, fotos/GPS en Android y el video de la visita requieren un teléfono y equipos accesibles. Esas evidencias no se sustituyen por datos de ejemplo.
+- `docs/TECNICO.md`: protocolo, seguridad y cola.
+- `docs/REQUISITOS.md`: requisitos y diferencias de Expo Go.
+- `docs/DEMO.md`: prueba y grabación desde iPhone.
+- `docs/VERIFICACION.md`: comprobaciones y pendientes físicos.
+- `backend/server.mjs` y `backend/network.mjs`: sincronización y puente.
+
+El APK `deliverables/fieldkit-1.0.0.apk` y el módulo Kotlin son artefactos de la versión Android anterior. Ese APK no contiene la adaptación actual y no se utiliza en el iPhone. Los scripts Android se conservan como referencia de esa versión.

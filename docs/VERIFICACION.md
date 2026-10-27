@@ -1,35 +1,33 @@
-# Verificación de la implementación
+# Verificación · Expo Go
 
-Fecha de desarrollo: 26 de octubre de 2026.
+Adaptación: 27 de octubre de 2026.
 
-## Comprobado
+## Comprobado en la computadora
 
-- TypeScript en modo estricto: `npm run typecheck`.
-- 17 pruebas automatizadas: `npm test`.
-- Vector BER SNMPv1 independiente y parsing del mismo vector.
-- Longitudes BER largas, OIDs con arcos multi-byte y Counter64 sin pérdida.
-- Rechazo de cada truncamiento del paquete de referencia, longitudes indefinidas y datos adicionales.
-- Validación de correlación, community, versión, PDU, OIDs y avance de GETNEXT.
-- Cliente SNMP contra un socket UDP real en loopback e interfaz con índice no consecutivo.
-- Estados/reintentos offline, backoff, recuperación de sending y exclusión de workers duplicados.
-- Conflictos y bloqueo de sucesoras por entidad; propagación de la versión confirmada.
-- Backend HTTP con token, conflictos, idempotencia persistida tras reiniciar y adjuntos.
-- Exportación web mediante Metro.
-- Revisión visual de pantallas y navegación en el navegador.
-- Alta manual de un equipo en la UI, registro de fallo SNMP explicando la necesidad de Android, asociación de ficha MikroTik desde el backend, recarga conservando equipo/historial y envío de la cola al backend.
+- TypeScript estricto sin errores: `npm run typecheck`.
+- 23 pruebas automatizadas aprobadas: `npm test`.
+- Compatibilidad de versiones del SDK: `npx expo install --check`.
+- Exportación iOS/Hermes correcta, sin importar WatermelonDB ni depender de un módulo de sockets instalado en Expo Go.
+- Backend autenticado: idempotencia persistida, conflictos y transferencia de adjuntos.
+- SNMP con bytes BER propios atravesando HTTP y un socket UDP real en loopback.
+- Servidor SSH real de prueba: obtención de huella sin autenticar, rechazo de huella distinta antes de enviar credenciales, ejecución correcta y rechazo de comandos fuera del catálogo.
+- Repositorio persistente: entidad+outbox atómicas, reapertura, error de disco sin cambios en memoria, escritores simultáneos y respaldo de conflictos.
+- Regresión: desconexión prolongada no agota reintentos; reconexión fuerza pendientes sin esperar el backoff.
+- Regresión: IP repetida entre sitios y MAC diferente no mezclan equipos.
+- Inicio de Expo CLI en modo Expo Go y QR para la LAN de la computadora.
+- Prueba de interfaz en vista móvil: conexión autenticada al puente, alta de un equipo de laboratorio identificado como fixture, consulta SNMP correcta con interfaces 1 y 3, sincronización automática hasta cola vacía y recarga conservando equipo e historial. Se usó un servidor de prueba separado de los datos del iPhone.
 
-## Verificaciones físicas pendientes
+## Pendiente de comprobar con el iPhone
 
-- Ejecutar el APK en un teléfono Android real (no había dispositivos en `adb devices`).
-- Descubrir un router/ONT/switch en una LAN física y contrastar la respuesta SNMP.
-- Conexión SSH real con verificación de huella y credenciales.
-- Cámara/lector de código, GPS y PDF completo con evidencia capturada en Android.
-- Video de campo conforme a `docs/DEMO.md`.
+- Apertura efectiva en la versión de Expo Go instalada por el usuario.
+- Permiso de Red local y alcance del servidor desde la Wi-Fi del teléfono.
+- Captura de foto, lectura física de QR/barras, GPS y persistencia tras reabrir Expo Go.
+- PDF completo generado y compartido con evidencia real.
+- Descubrimiento y diagnóstico de un router/ONT/switch físico, y contraste de sus valores.
+- Video de demostración del recorrido completo.
 
-Se intentó preparar un emulador, pero el almacenamiento disponible resultó insuficiente; se retiraron exclusivamente esos archivos generados. La vista web sirve para QA de UI y persistencia, y no se usa como prueba de funcionamiento de sockets/cámara/GPS nativos.
+La exportación iOS y las pruebas de Node verifican partes concretas; no equivalen a una ejecución en un iPhone físico. La vista web permite comprobar interfaz/IndexedDB y usar el puente, pero las funciones de evidencia/PDF se verifican en Expo Go.
 
-## Build Android
+## Artefacto Android anterior
 
-Build release completado correctamente: APK de 29,66 MiB, Android mínimo API 24, target API 36 y ABI arm64-v8a. Se verificó la firma APK v2 y el inventario de bibliotecas (Expo Modules Core, Hermes, React Native y libc++). El bundle JavaScript está incluido para funcionar sin Metro.
-
-El hash SHA-256 y los resultados de la entrega están en `deliverables/BUILD.txt`. Un APK no prueba por sí mismo el acceso a una LAN física ni el comportamiento de permisos en cada fabricante Android.
+El APK `deliverables/fieldkit-1.0.0.apk` corresponde al 26 de octubre y a la implementación Android anterior (arm64-v8a, firma de prueba). No se recompiló para esta adaptación. Su hash/BUILD.txt describen solo ese archivo; no prueban la versión de Expo Go. El código anterior se conserva en el historial Git.

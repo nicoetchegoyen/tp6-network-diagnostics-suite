@@ -91,7 +91,7 @@ test("Conflicto bloquea sucesoras de la entidad y no borra el snapshot", async (
   assert.equal(f.rows()[1].state, "pending");
   assert.deepEqual(f.sent, ["a"]);
 });
-test("Errores permanentes requieren revisión; 8 fallos no descartan datos", async () => {
+test("Errores permanentes requieren revisión; 8 fallos transitorios siguen pendientes", async () => {
   const f = fixture();
   f.response({ status: 401, version: 0 });
   await new SyncEngine(f.port).run();
@@ -99,8 +99,25 @@ test("Errores permanentes requieren revisión; 8 fallos no descartan datos", asy
   const g = fixture([{ ...action(), attempts: 7 }]);
   g.offline(true);
   await new SyncEngine(g.port).run();
-  assert.equal(g.rows()[0].state, "failed");
+  assert.equal(g.rows()[0].state, "pending");
   assert.equal(g.rows().length, 1);
+});
+test("Una desconexión prolongada se recupera automáticamente sin agotar reintentos", async () => {
+  const f = fixture();
+  let now = 100;
+  const engine = new SyncEngine(f.port, () => now);
+  f.offline(true);
+  for (let i = 0; i < 12; i++) {
+    await engine.run();
+    now += 400000;
+  }
+  assert.equal(f.rows()[0].state, "pending");
+  assert.equal(f.rows()[0].attempts, 12);
+  f.offline(false);
+  // La señal de reconexión permite el envío inmediato, aunque reste backoff.
+  now -= 399999;
+  await engine.run({ force: true });
+  assert.equal(f.rows().length, 0);
 });
 test("Orden por entidad transmite la versión confirmada a la próxima acción", async () => {
   const f = fixture([action(), action("b")]);

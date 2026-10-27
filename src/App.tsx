@@ -45,6 +45,7 @@ import {
   uid,
 } from "./domain/types";
 import { ipv4ToInt, parseEquipmentCode } from "./domain/network";
+import { findEquipment } from "./domain/equipment";
 import { store } from "./store/database";
 import {
   discover,
@@ -52,6 +53,8 @@ import {
   runSSH,
   snmp,
   snmpConfig,
+  configureNetwork,
+  directNetworkAvailable,
 } from "./services/network";
 import { COMMANDS, Vendor } from "./protocol/commands";
 import { formatUptime } from "./protocol/snmp";
@@ -94,6 +97,7 @@ function AppContent() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS),
     settingsRef = useRef(settings);
   settingsRef.current = settings;
+  configureNetwork(() => settingsRef.current.backendUrl);
   const sync = useRef(createSync(() => settingsRef.current)).current;
   const [devices, setDevices] = useState<Device[]>([]),
     [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]),
@@ -102,6 +106,7 @@ function AppContent() {
   const [connected, setConnected] = useState(false),
     [syncing, setSyncing] = useState(false),
     [busy, setBusy] = useState("");
+  const connectedRef = useRef(false);
   const [settingsDraft, setSettingsDraft] = useState(DEFAULT_SETTINGS);
   const [showSettings, setShowSettings] = useState(false),
     [selected, setSelected] = useState<string>(),
@@ -152,7 +157,7 @@ function AppContent() {
     setQueue(q);
   }, []);
   const syncNow = useCallback(
-    async (silent = false) => {
+    async (silent = false, force = !silent) => {
       if (!settingsRef.current.backendUrl) {
         if (!silent)
           notify(
@@ -163,7 +168,7 @@ function AppContent() {
       }
       setSyncing(true);
       try {
-        await sync.run();
+        await sync.run({ force });
         await refresh();
       } catch (e) {
         if (!silent) notify("No se pudo sincronizar", message(e));
@@ -185,11 +190,16 @@ function AppContent() {
           ...saved,
           community: community || "public",
         };
+        settingsRef.current = prefs;
+        const savedToken = await secrets.get("backend-token");
+        const token =
+          savedToken || process.env.EXPO_PUBLIC_FIELDKIT_TOKEN || "";
+        if (!savedToken && token) await secrets.set("backend-token", token);
         if (mounted) {
           setSettings(prefs);
           setSite(prefs.site);
           setTechnician(prefs.technician);
-          setBackendToken((await secrets.get("backend-token")) || "");
+          setBackendToken(token);
         }
         const draft = await store.get<{
           id: string;
@@ -234,15 +244,25 @@ function AppContent() {
     if (!ready) return;
     const unsubscribe = NetInfo.addEventListener((state) => {
       const online = state.isConnected === true;
+      const recovered = online && !connectedRef.current;
+      connectedRef.current = online;
       setConnected(online);
-      if (online && settingsRef.current.autoSync) void syncNow(true);
+      if (online && settingsRef.current.autoSync) void syncNow(true, recovered);
     });
     const app = AppState.addEventListener("change", (state) => {
-      if (state === "active" && settingsRef.current.autoSync)
+      if (
+        state === "active" &&
+        connectedRef.current &&
+        settingsRef.current.autoSync
+      )
         void syncNow(true);
     });
     const timer = setInterval(() => {
-      if (settingsRef.current.autoSync && AppState.currentState === "active")
+      if (
+        connectedRef.current &&
+        settingsRef.current.autoSync &&
+        AppState.currentState === "active"
+      )
         void syncNow(true);
     }, 20000);
     return () => {
@@ -350,6 +370,13 @@ function AppContent() {
     await store.save("diagnostic", diagnostic);
   }
   async function scan() {
+    if (!settings.site.trim()) {
+      notify(
+        "Identificá el sitio",
+        "Completá el sitio de trabajo en Ajustes antes de escanear.",
+      );
+      return;
+    }
     setScanning(true);
     setScanProgress(0);
     scanCancelled.current = false;
@@ -359,9 +386,7 @@ function AppContent() {
       );
       for (const d of found) {
         if (scanCancelled.current) break;
-        const existing = devices.find(
-          (e) => e.ip === d.ip || (d.mac && e.mac === d.mac),
-        );
+        const existing = findEquipment(devices, d);
         const device = {
           ...existing,
           ...d,
@@ -396,7 +421,7 @@ function AppContent() {
     if (!p.granted) {
       notify(
         "Permiso de cámara",
-        "Habilitá el permiso de cámara en los ajustes de Android.",
+        "Habilitá el permiso de cámara para Expo Go en los ajustes del teléfono.",
       );
       return;
     }
@@ -627,6 +652,22 @@ function AppContent() {
                 </View>
               ))}
             </View>
+            {!directNetworkAvailable && (
+              <Card>
+                <Label>EXPO GO · CONEXIÓN CON TU COMPUTADORA</Label>
+                <Text style={s.body}>
+                  Las fotos, el GPS, los PDF y tus registros se guardan en este
+                  teléfono. El escaneo, SNMP y SSH se ejecutan desde la
+                  computadora conectada a la red del equipo.
+                </Text>
+                <Button
+                  title="Configurar conexión y sitio"
+                  icon="options-outline"
+                  secondary
+                  onPress={() => setShowSettings(true)}
+                />
+              </Card>
+            )}
             <Section title="Explorar la red" detail="mDNS · TCP/UDP" />
             <Card>
               <Field
@@ -695,10 +736,17 @@ function AppContent() {
                       void task("manual", async () => {
                         ipv4ToInt(manualIp.trim());
                         const ip = manualIp.trim();
-                        const existing = devices.find((d) => d.ip === ip);
+                        if (!settings.site.trim())
+                          throw new Error(
+                            "Completá el sitio de trabajo en Ajustes antes de agregar equipos.",
+                          );
+                        const existing = findEquipment(devices, {
+                          ip,
+                          site: settings.site,
+                        });
                         const d: Device = {
                           ...existing,
-                          id: existing?.id || `ip-${ip}`,
+                          id: existing?.id || uid(),
                           ip,
                           name: manualName.trim() || ip,
                           source: "manual",
@@ -1415,7 +1463,7 @@ function AppContent() {
                 />
                 <View style={[s.row, { justifyContent: "space-between" }]}>
                   <Text style={[s.body, { flex: 1 }]}>
-                    Recordar en Keystore
+                    Recordar de forma segura
                   </Text>
                   <Switch
                     value={remember}
@@ -1609,7 +1657,7 @@ function AppContent() {
           />
         </Card>
         <Card>
-          <Label>BACKEND DE SINCRONIZACIÓN</Label>
+          <Label>SERVIDOR Y PUENTE DE RED</Label>
           <Field
             label="URL del servidor"
             placeholder="http://192.168.1.10:8787"
@@ -1629,8 +1677,9 @@ function AppContent() {
             autoCapitalize="none"
           />
           <Text style={s.caption}>
-            Usá HTTPS fuera del laboratorio. El backend puede estar en la LAN
-            sin acceso a Internet.
+            Iniciá npm start en tu computadora. El iPhone y la PC deben estar en
+            la misma Wi-Fi. Permití el acceso de Expo Go a la red local si iOS
+            lo solicita. Usá HTTPS fuera del laboratorio.
           </Text>
           <Button
             title="Probar conexión"
@@ -1689,7 +1738,7 @@ function AppContent() {
             ))}
           </View>
           <Field
-            label="Community (guardada en Keystore)"
+            label="Community (guardada de forma segura)"
             value={settingsDraft.community}
             onChangeText={(v) =>
               setSettingsDraft({ ...settingsDraft, community: v })
@@ -1727,8 +1776,8 @@ function AppContent() {
         <Text style={s.caption}>
           Fieldkit 1.0.0 · TP6 · React Native
           {Platform.OS === "web"
-            ? "\nVista web: sin sockets, SSH ni PDF nativos. Las credenciales solo se conservan en memoria."
-            : "\nAndroid · Almacenamiento WatermelonDB / SQLite"}
+            ? "\nVista web: diagnósticos mediante la PC. Fotos, GPS y PDF se prueban en Expo Go. Las credenciales solo se conservan en memoria."
+            : `\n${Platform.OS === "ios" ? "iPhone" : "Android"} · SQLite de Expo · Funciona en Expo Go`}
         </Text>
       </Sheet>
       <Sheet

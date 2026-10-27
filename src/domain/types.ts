@@ -3,6 +3,7 @@ export type Device = {
   ip: string;
   mac?: string;
   hostname?: string;
+  serviceName?: string;
   name: string;
   source: "tcp" | "udp" | "mdns" | "manual";
   ports: number[];
@@ -88,7 +89,7 @@ export type Settings = {
 };
 export const DEFAULT_SETTINGS: Settings = {
   id: "preferences",
-  backendUrl: "",
+  backendUrl: process.env.EXPO_PUBLIC_FIELDKIT_BACKEND || "",
   technician: "",
   site: "",
   community: "public",

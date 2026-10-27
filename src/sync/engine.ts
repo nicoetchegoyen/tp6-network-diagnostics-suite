@@ -32,7 +32,7 @@ export class SyncEngine {
       if (action.state === "sending")
         await this.port.update({ ...action, state: "pending" });
   }
-  async run(): Promise<void> {
+  async run({ force = false }: { force?: boolean } = {}): Promise<void> {
     if (this.running) return;
     this.running = true;
     try {
@@ -45,7 +45,7 @@ export class SyncEngine {
         if (blocked.has(entityKey)) continue;
         if (
           original.state !== "pending" ||
-          original.nextAttemptAt > this.now()
+          (!force && original.nextAttemptAt > this.now())
         ) {
           blocked.add(entityKey);
           continue;
@@ -99,7 +99,7 @@ export class SyncEngine {
           await this.port.update({
             ...action,
             attempts,
-            state: attempts >= 8 ? "failed" : "pending",
+            state: "pending",
             nextAttemptAt: this.now() + retryDelay(attempts),
             error:
               error instanceof Error

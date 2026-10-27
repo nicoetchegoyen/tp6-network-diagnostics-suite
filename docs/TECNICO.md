@@ -1,70 +1,52 @@
-# Documento técnico
+# Documento técnico · Expo Go
 
-## 1. Arquitectura y decisiones
+Adaptación del 27 de octubre de 2026 para iPhone con Expo Go. La implementación Android anterior permanece en Git; el flujo principal actual es `npm start` y escanear el QR.
 
-La aplicación separa las seis responsabilidades de la consigna. El destino nativo implementado es Android 7/API 24 o superior, con build de prueba para arm64. Se usa Expo como herramienta de compilación de React Native con código nativo propio; **no Expo Go**. No se implementó un bridge iOS de sockets/SSH.
+## Arquitectura
 
-| Capa         | Implementación                                                                      |
-| ------------ | ----------------------------------------------------------------------------------- |
-| Presentación | `src/App.tsx`, componentes en `src/ui/`                                             |
-| Discovery    | `src/services/network.ts`, módulo Kotlin `FieldNetwork`                             |
-| Protocol     | `src/protocol/snmp.ts`, `commands.ts`, transporte UDP/TCP y SSH nativo              |
-| Evidence     | `expo-camera` con lector ML Kit, `expo-location`, `expo-file-system`                |
-| Local Store  | WatermelonDB 0.28 con SQLite nativo, observación reactiva y escritores serializados |
-| Sync         | `src/sync/engine.ts`, adaptador API, NetInfo y outbox persistente                   |
-| Reporting    | HTML propio escapado, `expo-print`, archivos privados y `expo-sharing`              |
-
-Las bibliotecas de la consigna son un stack sugerido. Se conservó WatermelonDB y NetInfo y se eligieron equivalentes para cámara, geolocalización, PDF y almacenamiento seguro. El bridge Kotlin reemplaza las dependencias de zeroconf/UDP/TCP/SSH y evita depender de bridges abandonados: usa `NsdManager`, `Socket`, `DatagramSocket` y JSch mantenido por mwiede. El protocolo SNMP se implementa manualmente en TypeScript. Ningún descubrimiento o diagnóstico SNMP/SSH pasa por HTTP; HTTP/HTTPS se usa para catálogo y sincronización.
+| Capa           | Implementación actual                                                  |
+| -------------- | ---------------------------------------------------------------------- |
+| Interfaz       | React Native 0.81.5 / React 19 / TypeScript, Expo SDK 54               |
+| Descubrimiento | Cliente HTTP de la app; mDNS Bonjour y sockets TCP/UDP en Node         |
+| Protocolo      | BER/ASN.1 SNMP propio en la app; transporte de bytes mediante la PC    |
+| SSH            | `ssh2` en la PC, comandos cerrados y huella SHA-256 aceptada en la app |
+| Evidencia      | expo-camera, expo-location y expo-file-system en el iPhone             |
+| Persistencia   | expo-sqlite en Expo Go; IndexedDB en preview web                       |
+| Cola           | Repositorio atómico, SyncEngine propio, NetInfo y adjuntos             |
+| Reportes       | HTML escapado con imágenes base64, expo-print y expo-sharing           |
 
 ```mermaid
-flowchart TB
-  UI[React Native / UI] --> D[Discovery]
-  UI --> P[Protocol]
-  UI --> E[Evidence]
-  UI --> L[WatermelonDB / SQLite]
-  UI --> S[Sync / Outbox]
-  D --> LAN[LAN]
-  P --> LAN
-  P --> K[Android Keystore]
-  E --> L
-  L --> R[Reporting / PDF]
-  S --> L
-  S --> B[Backend persistente]
+flowchart LR
+  UI[iPhone · Expo Go] --> DB[SQLite local y outbox]
+  UI --> EV[Cámara, GPS, QR y PDF locales]
+  UI -->|HTTP en laboratorio / HTTPS fuera| PC[Servidor de la PC]
+  PC -->|UDP / TCP / SSH / mDNS| LAN[Equipos reales en la LAN de la PC]
+  PC --> BACK[Entidades, recibos y adjuntos persistentes]
 ```
 
-## 2. Descubrimiento LAN
+El teléfono no abre sockets UDP/TCP arbitrarios en Expo Go. Los diagnósticos corresponden a la conectividad de la **computadora**, que debe alcanzar los equipos. Este cambio se identifica en la UI y en la matriz de requisitos. El módulo Kotlin anterior se usa solo si una compilación Android lo incluye; Expo Go utiliza el puente.
 
-La UI propone el IPv4 y prefijo de una interfaz local; se limita a /22 como máximo para evitar barridos descontrolados. Acepta /22 a /32, excluye dirección de red y broadcast salvo /31 y /32.
+## Inicio y emparejamiento
 
-El bridge explora servicios `_ssh._tcp`, `_http._tcp`, `_https._tcp`, `_workstation._tcp` y `_snmp._udp` mediante mDNS/Bonjour. Mantiene un multicast lock durante la ventana y libera listeners y ejecutores en `finally`. Luego sondea TCP 22/80/443 con 24 trabajadores y timeout de 350 ms por intento. Una conexión aceptada o un rechazo explícito de conexión prueba actividad; un timeout o “unreachable” no prueba que un host esté activo. Si no se obtiene evidencia TCP, se prueba una consulta SNMP UDP al puerto configurado para detectar equipos que solo responden por ese protocolo. Una respuesta o rechazo ICMP de puerto del destino prueba actividad; la consulta SNMP inicial posterior valida el contenido. La UI muestra progreso y ofrece cancelar.
+`scripts/start-expo.mjs` inicia el backend y Expo CLI. Genera una clave aleatoria de laboratorio en `.cache/companion-token`, la reutiliza y pasa URL/token a Metro como variables `EXPO_PUBLIC_FIELDKIT_*`. La app inicializa la URL predeterminada y guarda el token en SecureStore. Las preferencias editadas por el usuario se conservan. El token es público dentro del bundle de desarrollo: no reemplaza autenticación de producción ni debe reutilizarse como una credencial externa.
 
-Se intenta leer la caché ARP del sistema para obtener MAC. Android 10+ suele impedir leer `/proc/net/arp`; en ese caso se conserva `null` y se muestra “No disponible”. No se fabrican MAC. El hostname proviene del anuncio mDNS cuando existe. El sondeo no emite tramas Ethernet ARP crudas: Android sin root restringe ese acceso. Equipos que no anuncian mDNS y descartan todos los puertos sondeados pueden no aparecer. La entrada manual permite consultar SNMP en una IP conocida. Wi-Fi con aislamiento de clientes puede impedir el descubrimiento.
+El servidor escucha en todas las interfaces para permitir la conexión del teléfono. El puente solo se habilita con token; fuera del launcher se requiere `NETWORK_GATEWAY=1` y `SYNC_TOKEN`. El backend de evidencia puede iniciarse solo con `npm run backend`, sin habilitar diagnósticos. Los endpoints `/v1/network/*` comparten la autenticación, pero no persisten cuerpos, contraseñas ni datagramas.
 
-Los resultados se unen por IP; al persistir se reutiliza un equipo local con la misma IP o MAC conocida. Cada equipo observado recibe una consulta inicial a sysName, sysUpTime y sysDescr. Las respuestas y los errores se guardan como diagnósticos. La lista local representa equipos **vistos anteriormente**, no promete que sigan online; por eso muestra “Visto” y fecha.
+## Descubrimiento e identidad
 
-## 3. Subconjunto SNMP
+Se aceptan CIDR /22 a /32. La app divide el escaneo en lotes de 24 hosts para informar progreso y permitir cancelación. La PC usa hasta doce trabajadores por lote, con TCP 22/80/443/8291 y un sondeo SNMP al puerto UDP configurado. Solo una conexión TCP aceptada o una respuesta UDP producen un host encontrado; puertos filtrados pueden impedir la detección. La entrada manual sigue disponible.
 
-### Transporte y correlación
+mDNS/Bonjour proporciona hostname y nombre de servicio como campos separados cuando están disponibles. La versión puente no obtiene MAC por ARP: se muestra No disponible. No se inventan valores. Cancelar aborta el pedido del teléfono y evita lotes nuevos; el lote que ya recibió la PC finaliza dentro de su timeout.
 
-El encoder produce bytes BER/ASN.1 y el bridge envía un `DatagramPacket` a UDP/161 por defecto, con puerto configurable. El socket UDP se conecta al destino para filtrar respuestas de otros pares y se cierra con `use`. El timeout es configurable entre 100 y 15000 ms. Se permite un reintento de transporte ante timeout; se conserva el request-id.
+El ID persistente es independiente de la IP. La coincidencia exige el mismo sitio; si ambos registros tienen MAC, se compara esa MAC, y en otro caso se compara la IP dentro del sitio. Se exige indicar sitio antes de agregar/escanear. Una IP repetida en otro sitio produce otra entidad y otro historial.
 
-Se aceptan versiones wire 0 (SNMPv1) y 1 (SNMPv2c), con community de 1–255 bytes. La respuesta debe ser GetResponse y coincidir en request-id, versión y community. GET exige misma cantidad y OIDs solicitados. Los errores del agente `error-status/error-index` se informan y registran. No se confunde una respuesta de otro request con una medición válida.
+El puente limita los destinos a IPv4 privadas, link-local y loopback, admite como máximo 1024 hosts por solicitud, 128 KiB por cuerpo y 32 operaciones concurrentes; no permite URLs ni nombres arbitrarios como destinos. La detección no depende de Internet.
 
-### Tipos y PDUs
+## SNMP implementado manualmente
 
-| Elemento                                                                  | Soporte                                             |
-| ------------------------------------------------------------------------- | --------------------------------------------------- |
-| SEQUENCE, INTEGER, OCTET STRING, NULL, OBJECT IDENTIFIER                  | Encoder y parser                                    |
-| PDU GetRequest `0xA0`, GetNextRequest `0xA1`, GetResponse `0xA2`          | Implementados                                       |
-| IpAddress, Counter32, Gauge32, TimeTicks                                  | Parser                                              |
-| Counter64                                                                 | Parser como string decimal para conservar precisión |
-| noSuchObject, noSuchInstance, endOfMibView                                | Se representan con valor null                       |
-| Longitud BER corta/larga definida                                         | Validada contra tamaño del datagrama                |
-| Longitud indefinida, tipos PDU no soportados, datos truncados/adicionales | Rechazados                                          |
+`src/protocol/snmp.ts` genera GetRequest y GetNextRequest y parsea GetResponse. Versiones wire 0/1: SNMPv1/v2c con community. UDP/161 por defecto, puerto configurable, timeout 100–15000 ms y un reintento de transporte. Los bytes se envían en base64 al puente; Node crea un socket UDP conectado al destino, recibe del mismo par y lo cierra tras respuesta/error/timeout. El parser y la correlación permanecen en la app.
 
-Los arcos OID usan base-128, incluyendo la primera pareja de arcos combinada, y se validan contra el rango de subidentificadores. Se limita el datagrama a 65507 bytes y la respuesta a 128 varbinds para acotar procesamiento de entrada inválida.
-
-### MIB-II consultada
+Soporta SEQUENCE, INTEGER con signo, OCTET STRING, NULL, OID base-128, IpAddress, Counter32, Gauge32, TimeTicks y Counter64 como cadena decimal. Acepta longitud definida corta/larga y rechaza truncamientos, longitudes indefinidas, tipos no soportados y bytes adicionales. Correlaciona request-id, community, versión, PDU y OIDs. Trata excepciones de fin de MIB y noSuchName de v1 en GETNEXT.
 
 | Dato        | OID                  |
 | ----------- | -------------------- |
@@ -76,84 +58,32 @@ Los arcos OID usan base-128, incluyendo la primera pareja de arcos combinada, y 
 | ifInOctets  | 1.3.6.1.2.1.2.2.1.10 |
 | ifOutOctets | 1.3.6.1.2.1.2.2.1.16 |
 
-Se recorre ifIndex mediante GETNEXT y se consultan las columnas por el índice devuelto: no se supone que los índices sean consecutivos. El recorrido se detiene al salir del prefijo, al recibir una excepción de fin, o a las 64 interfaces; un OID que no avanza es un error. Se muestra la limitación si la tabla se trunca. sysUpTime representa centésimas de segundo desde la inicialización de la parte de gestión del equipo.
+Se camina ifIndex y se leen índices reales, hasta 64 interfaces; no se presuponen consecutivos. Los contadores se presentan como bytes acumulados, sin prometer velocidad instantánea. No hay SET, traps, GetBulk, SNMPv3 ni MIBs específicas de fabricantes. SNMPv1/v2c transmite la community sin cifrar; el tramo HTTP de laboratorio también transporta el datagrama. Fuera del laboratorio se requiere HTTPS, y SNMPv3 para proteger el tramo hacia el equipo.
 
-Los contadores de 32 bits son acumulados; pueden desbordar o reiniciarse. La UI presenta bytes de entrada/salida y no los etiqueta como velocidad instantánea. No se implementan SET, traps, GetBulk, polling continuo, MIBs vendor-specific ni SNMPv3. Las communities de v1/v2c viajan sin cifrado ni integridad criptográfica; el subset está orientado a una LAN administrada. Para un producto de producción que cruce redes no confiables se requiere SNMPv3 y una política de acceso por equipo.
+## SSH y credenciales
 
-## 4. SSH y credenciales
+La PC establece SSH con `ssh2`; la app solicita la huella SHA-256 antes de enviar credenciales SSH. El usuario debe contrastarla por otro canal y aceptarla. El servidor comprueba esa misma clave durante el siguiente handshake, antes de autenticar, y rechaza cualquier cambio.
 
-JSch realiza el handshake SSH sobre TCP, negocia algoritmos y ejecuta un canal `exec`. La app tiene un catálogo cerrado para Linux/OpenWrt, MikroTik y Cisco IOS. La lista se valida tanto en TypeScript como en Kotlin; no se concatena entrada del usuario para construir comandos. Todos los comandos son de consulta. Algunos equipos pueden requerir privilegios o una sesión PTY que esta implementación no ofrece.
+Catálogo de consulta cerrado, validado en app y backend: Linux/OpenWrt (`uptime`, `ip -s address show`, `ip route show`), MikroTik (`/system resource print`, `/interface print stats`, `/ip route print`) y Cisco (`show version`, `show interfaces`, `show ip route`). No se concatena entrada del usuario en comandos. Tiempo máximo de veinte segundos y salida máxima de 1 MiB. No hay shell interactiva, PTY ni autenticación por clave privada.
 
-Primero se obtiene la huella pública SHA-256 del servidor sin autenticar con la contraseña del técnico. La pantalla permite aceptarla después de compararla por un canal confiable. Al ejecutar un comando, `StrictHostKeyChecking=yes` y el repositorio de claves solo devuelve OK cuando coincide la huella fijada. Una clave diferente detiene la conexión. Aceptar una huella sin verificarla externamente no demuestra la identidad del primer servidor (riesgo inicial de TOFU).
+Las credenciales se guardan solo con Recordar de forma segura. SecureStore utiliza Keychain en iOS y almacenamiento protegido en Android. Community, token y huellas también se guardan allí; SQLite solo guarda el valor público predeterminado de community. Se ofrece olvidar credenciales/huella. La PC recibe temporalmente usuario y contraseña para establecer SSH, sin guardarlos en entidades, archivos o logs. HTTPS protege ese tramo cuando no se usa la red de laboratorio. En la vista web los secretos solo están en memoria.
 
-Usuario, contraseña y puerto solo se almacenan si el técnico activa “Recordar en Keystore”. `expo-secure-store` usa el Android Keystore para proteger el material cifrado. Las huellas, la community y el token también se conservan en SecureStore. Los secretos no se escriben en WatermelonDB, la cola, PDF ni el backend. El setting de community persistido en SQLite es siempre el valor público predeterminado; el valor elegido se carga del almacén seguro. Se deshabilita el backup Android de la app.
+## Evidencia y PDF en Expo Go
 
-La contraseña permanece en memoria mientras se usa el formulario; se limpia al cerrar el equipo o después de una ejecución sin recordar. Existe una acción para olvidar credenciales y huella. Las sesiones se cierran en `finally`, con timeouts de conexión/lectura y límite temporal del comando de 20 segundos y salida de 1 MiB. La vista web conserva secretos solo en memoria y no implementa SSH.
+La cámara permite QR, EAN-8/13, Code128/39, PDF417 y DataMatrix. Los códigos se interpretan como identificadores, sin navegar a URLs recibidas. Las fichas remotas se cachean; el catálogo del backend incluye HG8245H, RB750GR3 y LAB-001 como ejemplos.
 
-No hay autenticación SSH por clave privada, terminal interactiva ni sincronización de credenciales. No se debilita la comprobación de host para permitir una conexión.
+Una instalación requiere equipo, sitio, técnico, notas, GPS y al menos una foto, hasta seis. Cada foto guarda fecha, coordenadas y precisión obtenidas en ese momento. Se solicitan permisos de cámara y ubicación en primer plano; no se usa micrófono ni geolocalización de fondo. Timeout GPS de veinticinco segundos, sin inventar coordenadas. La copia de fotos se conserva en documentos privados de Expo Go, dentro del espacio del proyecto. No desinstalar Expo Go ni borrar sus datos con evidencia pendiente.
 
-## 5. Evidencia y reportes
+El formulario guarda un borrador. Se persiste la instalación antes de generar el PDF. expo-print crea A4 con notas escapadas, ubicación, imágenes base64 y hasta veinte diagnósticos coincidentes. Se mueve a documentos privados y se comparte con expo-sharing. No necesita servidor ni Internet para generar. Si falla, se conserva el registro y se reintenta al sincronizar. El PDF no tiene firma digital y SQLite/evidencia no tienen cifrado integral.
 
-`expo-camera` captura fotos y usa ML Kit para QR, EAN-8/13, Code128, Code39, PDF417 y DataMatrix. Se solicitan permisos al usar la función, sin pedir micrófono. Los códigos se interpretan como identificadores, nunca como instrucciones ni como destinos de navegación automática. El catálogo remoto se consulta al backend configurado y se guarda localmente para uso offline.
+## Persistencia y outbox
 
-Para una instalación se requieren equipo, sitio, técnico, notas, al menos una fotografía y GPS. Cada foto obtiene una lectura GPS propia con timestamp y precisión. La ubicación puede funcionar sin datos móviles, aunque el primer fix puede demorar o fallar en interiores. No se inventan coordenadas ni se usa una ubicación antigua silenciosamente. Si no hay permiso o fix, se ofrece un error y se puede reintentar.
+`LocalStore` es independiente de React Native y se prueba con un adaptador inyectado. En iOS/Android usa `expo-sqlite`, incluido en Expo Go. La tabla `local_entries` contiene clave compuesta serializada y JSON de cada fila: kind, key, data, version y updatedAt. Cada cambio confirma una transacción exclusiva que reemplaza el conjunto de filas. La estrategia es sencilla y adecuada al volumen de este TP; para grandes historiales conviene actualizar solo filas modificadas. La vista web usa una transacción IndexedDB equivalente. La base tiene otro nombre y no migra los datos de la versión WatermelonDB anterior.
 
-Las fotos se copian desde caché a documentos privados de la app. Un borrador persistente conserva los campos y referencias mientras se completa el formulario. Se admite hasta seis fotos, con calidad JPEG reducida para el uso de campo. Las notas se escapan antes de insertarlas en HTML para impedir que se interpreten como código.
+Los escritores se serializan. Entidad y acción outbox se confirman juntas antes de notificar la UI. Un error de disco no publica cambios en memoria. Cada edición conserva un snapshot inmutable con ID propio y createdAt estrictamente creciente. La confirmación elimina su acción y propaga la versión remota a las sucesoras sin sobrescribir ediciones locales posteriores.
 
-La instalación se guarda con outbox antes de generar el PDF. Se genera un A4 con datos de visita/equipo, GPS y precisión, notas, imágenes embebidas en base64 y hasta veinte diagnósticos recientes del mismo equipo y sitio. Se mueve desde caché a un directorio persistente y se puede compartir mediante el selector nativo. Si la generación falla, se conserva el registro y el worker la reintenta antes de enviar. Generar y leer el reporte no requiere una llamada al backend.
+Estados: pending → sending → confirmada/eliminada, pending con backoff, conflict o failed. Un único worker aplica FIFO y bloquea sucesoras de la entidad en espera/conflicto/error. Al iniciar recupera sending. Los errores transitorios permanecen pending **sin límite de intentos**, con backoff de 2 segundos a 5 minutos más jitter. Los 4xx permanentes, salvo 408/429, requieren corregir y reintentar. NetInfo al reconectar fuerza el intento inmediato de pendientes; el temporizador no envía si no hay conectividad. También se intenta cada veinte segundos con la app activa y al volver al primer plano. No se promete ejecución con Expo Go cerrado.
 
-La aplicación no firma digitalmente el reporte ni modifica EXIF; la georreferencia pertenece a los datos asociados a cada foto y se imprime en el PDF. La información offline es privada de la app pero SQLite y fotos no están cifrados íntegramente; el cifrado adicional de evidencias puede ser necesario según las políticas del operador.
+El backend persiste recibos actionId y versiones: reenvíos confirmados son idempotentes. HTTP 409 conserva versión, datos y adjuntos remotos. Elegir local reencola contra la versión del servidor; elegir servidor descarga los adjuntos y conserva un respaldo local antes de reemplazar entidad/acciones relacionadas.
 
-## 6. Persistencia y cola offline
-
-WatermelonDB usa SQLite nativo con esquema versión 1. La tabla `entries` almacena un discriminante `kind`, una clave de entidad indexada, un JSON tipado de dominio, versión remota confirmada y fecha. Aloja equipos, diagnósticos, instalaciones, fichas cacheadas, preferencias y acciones outbox. No se llama a la API de sincronización genérica de WatermelonDB: se implementa un outbox explícito con control de adjuntos y conflictos. Los escritores serializados de WatermelonDB y `database.batch` hacen atómica la escritura de la entidad junto con su acción.
-
-Cada edición produce una acción con ID único y snapshot inmutable. Una edición posterior no sobrescribe un snapshot leído por un worker. Campos de la acción:
-
-```text
-id, entityId, kind, payload, baseVersion, createdAt
-attempts, nextAttemptAt, state, error
-serverVersion, serverPayload, serverAssets (solo en conflicto)
-```
-
-Estados: pending → sending → confirmada/eliminada, pending con backoff, conflict o failed. Al arrancar, las acciones sending se recuperan como pending. Un único worker procesa FIFO y bloquea sucesoras de la misma entidad si una acción falla, espera o entra en conflicto. No bloquea entidades independientes.
-
-La entrega tiene semántica **al menos una vez**. El backend recibe `actionId`, persiste un recibo junto con la entidad y devuelve la misma confirmación si esa acción se repite después de perderse la respuesta. Un recibo solo se considera válido para una solicitud recibida y validada. Tras confirmar, la app elimina la acción y actualiza las versiones base de sucesoras en una transacción.
-
-Se reintenta con backoff exponencial de 2 segundos hasta 5 minutos, más jitter de hasta 1 segundo. Tras ocho fallos se marca failed y se conserva todo para revisión/reintento manual. 401/403/413 y otros errores permanentes 4xx se presentan para revisión. 408/429/5xx y errores de transporte son transitorios. Un 409 pasa a conflict y permite elegir versión local o del servidor. Conservar la local reutiliza la versión remota conocida; adoptar la del servidor descarga primero sus evidencias y solo después reemplaza el registro. Antes del reemplazo se conserva un respaldo de la entidad y sus acciones en un registro local `conflict-backup-*` para recuperación técnica.
-
-NetInfo dispara el worker al recuperar conexión de red. Se consulta el backend configurado directamente; `isInternetReachable=false` no impide sincronizar por una LAN funcional. El worker también se ejecuta al volver a primer plano, tras guardar una instalación, manualmente y cada 20 segundos en primer plano. No existe un servicio Android que siga trabajando indefinidamente con la app cerrada. Las acciones permanecen durables hasta la próxima apertura.
-
-## 7. Contrato del backend
-
-El stub Node utiliza HTTP y un archivo JSON con escrituras a un temporal y rename. Serializa las mutaciones para evitar actualizaciones perdidas. No necesita una base de datos externa. Las evidencias se validan por tipo, tamaño y firma básica, se guardan con nombres SHA-256 y se referencian desde la entidad. Una petición tiene un máximo de 40 MiB; cada adjunto base64 tiene un máximo de 16 MiB y se limita la cantidad. Los archivos se escriben antes de confirmar el registro; un fallo puede dejar un blob huérfano, pero no una confirmación sin archivos.
-
-```json
-{
-  "actionId": "identificador-idempotente",
-  "kind": "device",
-  "entityId": "ip-192.168.1.1",
-  "baseVersion": 0,
-  "payload": { "id": "ip-192.168.1.1", "name": "Gateway" },
-  "assets": []
-}
-```
-
-Respuesta OK: `200 {version: 1}`; repetición: `200 {version: 1, duplicate: true}`. Un conflicto devuelve `409 {version, payload, assets}`. Se rechazan campos sensibles `password`, `community`, `privateKey` y `token` del payload. El backend no ofrece autenticación multiusuario, autorización por tenant, cifrado en reposo, auditoría completa, pull bidireccional, retención de blobs ni una garantía de fsync ante pérdida eléctrica. Es un stub persistente para validar el flujo requerido.
-
-Se admite token Bearer mediante variable de entorno. El tráfico HTTP claro está habilitado en el manifiesto Android para el laboratorio LAN; fuera de ese escenario se debe configurar HTTPS. Las credenciales SSH nunca se incluyen en este protocolo.
-
-## 8. Referencias primarias
-
-- [RFC 1157 — SNMPv1](https://www.rfc-editor.org/rfc/rfc1157)
-- [RFC 1905 — PDUs de SNMPv2](https://www.rfc-editor.org/rfc/rfc1905)
-- [RFC 1213 — MIB-II](https://www.rfc-editor.org/rfc/rfc1213)
-- [WatermelonDB — instalación](https://watermelondb.dev/docs/Installation)
-- [Expo Modules API](https://docs.expo.dev/modules/module-api/)
-- [JSch mantenido por mwiede](https://github.com/mwiede/jsch)
-- [Android — descubrimiento de servicios](https://developer.android.com/develop/connectivity/wifi/use-nsd)
-- [Expo SecureStore](https://docs.expo.dev/versions/v54.0.0/sdk/securestore/)
-
-## 9. Reproducibilidad de la compilación en Windows
-
-El script de build monta temporalmente una letra libre sobre la carpeta del proyecto para acortar las rutas de Ninja/NDK y la desmonta en `finally`. No cambia la ubicación de los archivos. `scripts/prepare-native.cjs` agrega de forma idempotente el enlace explícito de `c++_shared` al CMake de Expo Modules en Windows: el alias 8.3 de clang++ puede perder los signos ++ y omitir el runtime C++ implícito. La modificación se aplica sobre dependencias instaladas y queda reproducida en el script versionado. Se compila con un worker y heap de 2 GiB para evitar picos de memoria.
+La sincronización incluye fotos JPEG y PDF reales en base64. Backend limita 40 MiB por petición, diez adjuntos y tamaño individual, valida firma básica, almacena archivos por SHA-256 y confirma el estado mediante archivo temporal y rename. Es un backend mínimo de laboratorio, sin administración multiusuario ni garantías de producción.

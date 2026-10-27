@@ -33,7 +33,7 @@ export async function retainPhoto(
   location: Coordinates,
 ): Promise<Photo> {
   if (!FileSystem.documentDirectory)
-    throw new Error("La evidencia persistente requiere el APK Android.");
+    throw new Error("Guardá la evidencia desde Expo Go en tu teléfono.");
   const dir = `${FileSystem.documentDirectory}evidence/`;
   await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
   const id = uid(),
