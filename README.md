@@ -2,6 +2,8 @@
 
 Aplicación React Native y TypeScript adaptada para **iPhone con Expo Go**, por pedido del usuario. No requiere Android, Xcode ni una cuenta paga de Apple para abrirla desde Expo Go instalado desde la tienda.
 
+Repositorio privado: [nicoetchegoyen/tp6-network-diagnostics-suite](https://github.com/nicoetchegoyen/tp6-network-diagnostics-suite).
+
 ## Abrir en el iPhone
 
 1. Conectar el iPhone y la computadora a la misma red Wi-Fi/LAN.

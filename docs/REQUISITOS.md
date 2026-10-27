@@ -27,4 +27,4 @@ Los cambios permiten usar el hardware disponible, pero no satisfacen literalment
 
 ## Archivos de entrega
 
-Fuente Git local, `README.md`, documentos de esta carpeta, backend y launcher `npm start`. El QR se regenera en `deliverables/expo-go-qr.png`. No se requiere una cuenta paga ni publicar en App Store para este flujo. La conexión al servidor de desarrollo debe mantenerse para cargar la app en Expo Go; una vez cargada, los registros y reportes locales pueden usarse sin el backend.
+Fuente en el repositorio privado [nicoetchegoyen/tp6-network-diagnostics-suite](https://github.com/nicoetchegoyen/tp6-network-diagnostics-suite), `README.md`, documentos de esta carpeta, backend y launcher `npm start`. El QR se regenera en `deliverables/expo-go-qr.png`. No se requiere una cuenta paga ni publicar en App Store para este flujo. La conexión al servidor de desarrollo debe mantenerse para cargar la app en Expo Go; una vez cargada, los registros y reportes locales pueden usarse sin el backend.

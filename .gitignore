@@ -19,7 +19,8 @@ legacy/**/local.properties
 *.log
 *.hprof
 *.dmp
-.env
+.env*
+!.env.example
 *.keystore
 !android/app/debug.keystore
 !legacy/android-sdk54/app/debug.keystore
