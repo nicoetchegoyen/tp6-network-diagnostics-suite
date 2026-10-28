@@ -145,7 +145,11 @@ class Reader {
       throw new Error("Valor BER truncado.");
     if (expected !== undefined && tag !== expected)
       throw new Error(`Tipo BER inesperado: ${tag}.`);
-    const data = this.data.subarray(this.offset, this.offset + len);
+    // Some mobile TypedArray implementations return a plain Uint8Array view.
+    // Restore Buffer explicitly before decoding text/hex with toString(encoding).
+    const data = Buffer.from(
+      this.data.subarray(this.offset, this.offset + len),
+    );
     this.offset += len;
     return { tag, data };
   }
@@ -294,14 +298,17 @@ export class SnmpClient {
         if (attempt || !/timeout|timed out/i.test(String(e))) throw e;
       }
     }
-    if (
-      !result ||
-      result.pdu !== 0xa2 ||
-      result.requestId !== requestId ||
-      result.community !== config.community ||
-      result.version !== config.version
-    )
-      throw new Error("La respuesta SNMP no corresponde a la solicitud.");
+    if (!result) throw new Error("No se recibió una respuesta SNMP válida.");
+    const mismatches = [
+      result.pdu !== 0xa2 && "tipo de mensaje",
+      result.requestId !== requestId && "identificador de consulta",
+      result.community !== config.community && "community",
+      result.version !== config.version && "versión",
+    ].filter(Boolean);
+    if (mismatches.length)
+      throw new Error(
+        `La respuesta SNMP no corresponde a la solicitud (${mismatches.join(", ")}).`,
+      );
     if (result.errorStatus)
       throw new SnmpResponseError(result.errorStatus, result.errorIndex);
     if (result.values.length !== oids.length)

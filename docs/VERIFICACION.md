@@ -11,7 +11,7 @@ El proyecto Android generado con SDK 54 se conserva en `legacy/android-sdk54/`, 
 ## Comprobado en la computadora
 
 - TypeScript estricto sin errores: `npm run typecheck`.
-- 23 pruebas automatizadas aprobadas: `npm test`.
+- 25 pruebas automatizadas aprobadas: `npm test`.
 - Compatibilidad de versiones del SDK: `npx expo install --check`.
 - Exportación iOS/Hermes correcta, sin importar WatermelonDB ni depender de un módulo de sockets instalado en Expo Go.
 - Backend autenticado: idempotencia persistida, conflictos y transferencia de adjuntos.
@@ -33,6 +33,12 @@ El proyecto Android generado con SDK 54 se conserva en `legacy/android-sdk54/`, 
 - Video de demostración del recorrido completo.
 
 La exportación iOS y las pruebas de Node verifican partes concretas; no equivalen a una ejecución en un iPhone físico. La vista web permite comprobar interfaz/IndexedDB y usar el puente, pero las funciones de evidencia/PDF se verifican en Expo Go.
+
+## Corrección SNMP del 28 de octubre de 2026
+
+Se reprodujo el mensaje «La respuesta SNMP no corresponde a la solicitud» al ejecutar el protocolo con el Buffer JavaScript de la app y una implementación de `subarray()` que devuelve una vista `Uint8Array` sin los métodos de Buffer. La lectura de OCTET STRING producía una lista decimal de bytes en lugar de texto UTF-8, alterando la community y los nombres.
+
+El lector BER ahora normaliza cada vista mediante `Buffer.from()` antes de decodificar texto/hexadecimal. Dos pruebas aisladas con el polyfill móvil reproducen el fallo anterior y comprueban la corrección con SNMPv1/v2c, identificadores de distintos tamaños y caracteres Unicode. Se conserva el rechazo de respuestas de otra consulta; los mensajes distinguen el campo que no coincide sin exponer credenciales. Falta confirmar el resultado al volver a consultar desde el iPhone del usuario.
 
 ## Artefacto Android anterior
 
