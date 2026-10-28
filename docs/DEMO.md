@@ -1,5 +1,7 @@
 # Prueba desde iPhone y guion de video
 
+Para grabar mostrando únicamente las pantallas, seguir [el paso a paso del video sin voz](VIDEO_SIN_VOZ.md).
+
 ## Preparación
 
 1. PC y iPhone en la misma red; iniciar `npm start` y dejar la terminal abierta.
