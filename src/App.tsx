@@ -17,7 +17,7 @@ import {
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { CameraView, useCameraPermissions } from "expo-camera";
+import { CameraPanel } from "./ui/CameraPanel";
 import NetInfo from "@react-native-community/netinfo";
 import {
   Badge,
@@ -128,10 +128,7 @@ function AppContent() {
     [notes, setNotes] = useState(""),
     [location, setLocation] = useState<Coordinates>(),
     [photos, setPhotos] = useState<Photo[]>([]);
-  const [cameraMode, setCameraMode] = useState<"qr" | "photo">(),
-    [permission, requestPermission] = useCameraPermissions(),
-    camera = useRef<CameraView>(null),
-    cameraLock = useRef(false);
+  const [cameraMode, setCameraMode] = useState<"qr" | "photo">();
   const [code, setCode] = useState(""),
     [vendor, setVendor] = useState<Vendor>("linux"),
     [commandId, setCommandId] = useState("uptime"),
@@ -409,7 +406,7 @@ function AppContent() {
       await refresh();
     }
   }
-  async function openCamera(mode: "qr" | "photo") {
+  function openCamera(mode: "qr" | "photo") {
     if (mode === "photo" && photos.length >= 6) {
       notify(
         "Evidencia completa",
@@ -417,15 +414,6 @@ function AppContent() {
       );
       return;
     }
-    const p = permission?.granted ? permission : await requestPermission();
-    if (!p.granted) {
-      notify(
-        "Permiso de cámara",
-        "Habilitá el permiso de cámara para Expo Go en los ajustes del teléfono.",
-      );
-      return;
-    }
-    cameraLock.current = false;
     setCameraMode(mode);
   }
   async function associateCode(raw: string) {
@@ -1282,12 +1270,31 @@ function AppContent() {
 
       <Sheet
         visible={!!selectedDevice}
-        title={selectedDevice?.name || "Equipo"}
+        title={
+          cameraMode === "qr"
+            ? "Identificar equipo"
+            : selectedDevice?.name || "Equipo"
+        }
         subtitle={selectedDevice?.ip}
         onClose={() => {
+          if (cameraMode === "qr") {
+            setCameraMode(undefined);
+            return;
+          }
           setSelected(undefined);
           setSshPassword("");
         }}
+        fullContent={
+          cameraMode === "qr" && selectedDevice ? (
+            <CameraPanel
+              mode="qr"
+              onCode={(raw) => {
+                setCameraMode(undefined);
+                void task("sheet", () => associateCode(raw));
+              }}
+            />
+          ) : undefined
+        }
       >
         {selectedDevice && (
           <>
@@ -1789,16 +1796,14 @@ function AppContent() {
         {historyDetail && <Result diagnostic={historyDetail} />}
       </Sheet>
       <Modal
-        visible={!!cameraMode}
+        visible={cameraMode === "photo"}
         animationType="slide"
         onRequestClose={() => setCameraMode(undefined)}
       >
         <SafeAreaView style={{ flex: 1, backgroundColor: C.navy }}>
           <View style={a.cameraHeader}>
             <Text style={{ color: "white", fontSize: 18, fontWeight: "700" }}>
-              {cameraMode === "qr"
-                ? "Identificar equipo"
-                : "Evidencia georreferenciada"}
+              Evidencia georreferenciada
             </Text>
             <Pressable
               accessibilityLabel="Cerrar cámara"
@@ -1808,69 +1813,18 @@ function AppContent() {
               <Icon name="close" color="white" />
             </Pressable>
           </View>
-          {cameraMode && permission?.granted && (
-            <CameraView
-              ref={camera}
-              style={{ flex: 1 }}
-              facing="back"
-              barcodeScannerSettings={{
-                barcodeTypes: [
-                  "qr",
-                  "ean13",
-                  "ean8",
-                  "code128",
-                  "code39",
-                  "pdf417",
-                  "datamatrix",
-                ],
+          {cameraMode === "photo" && (
+            <CameraPanel
+              mode="photo"
+              onPhoto={async (uri) => {
+                const gps = await locate();
+                const photo = await retainPhoto(uri, gps);
+                setPhotos((p) => [...p, photo]);
+                setLocation(gps);
+                setCameraMode(undefined);
               }}
-              onBarcodeScanned={
-                cameraMode === "qr"
-                  ? (event) => {
-                      if (cameraLock.current) return;
-                      cameraLock.current = true;
-                      setCameraMode(undefined);
-                      void task("sheet", async () => associateCode(event.data));
-                    }
-                  : undefined
-              }
-            >
-              <View pointerEvents="none" style={a.cameraFrame} />
-            </CameraView>
+            />
           )}
-          <View style={{ padding: 24, gap: 16 }}>
-            <Text
-              style={{ color: "#B8D9CB", fontSize: 13, textAlign: "center" }}
-            >
-              {cameraMode === "qr"
-                ? "Ubicá el código dentro del recuadro."
-                : "La foto se guardará con fecha y una nueva lectura de GPS."}
-            </Text>
-            {cameraMode === "photo" && (
-              <Button
-                title={
-                  busy === "photo"
-                    ? "Capturando foto y GPS…"
-                    : "Capturar evidencia"
-                }
-                icon="camera"
-                busy={busy === "photo"}
-                onPress={() =>
-                  void task("photo", async () => {
-                    const picture = await camera.current?.takePictureAsync({
-                      quality: 0.35,
-                    });
-                    if (!picture) throw new Error("No se capturó la foto.");
-                    const gps = await locate();
-                    const photo = await retainPhoto(picture.uri, gps);
-                    setPhotos((p) => [...p, photo]);
-                    setLocation(gps);
-                    setCameraMode(undefined);
-                  })
-                }
-              />
-            )}
-          </View>
         </SafeAreaView>
       </Modal>
     </SafeAreaView>
@@ -1881,11 +1835,13 @@ function Sheet({
   title,
   subtitle,
   onClose,
+  fullContent,
   children,
 }: React.PropsWithChildren<{
   visible: boolean;
   title: string;
   subtitle?: string;
+  fullContent?: React.ReactNode;
   onClose(): void;
 }>) {
   return (
@@ -1913,12 +1869,14 @@ function Sheet({
               <Icon name="close" />
             </Pressable>
           </View>
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={a.content}
-          >
-            {children}
-          </ScrollView>
+          {fullContent ?? (
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={a.content}
+            >
+              {children}
+            </ScrollView>
+          )}
         </KeyboardAvoidingView>
       </SafeAreaView>
     </Modal>
@@ -2274,15 +2232,5 @@ const a = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-  },
-  cameraFrame: {
-    position: "absolute",
-    left: "12%",
-    top: "22%",
-    width: "76%",
-    height: "50%",
-    borderWidth: 2,
-    borderColor: "#E2F5D6",
-    borderRadius: 24,
   },
 });
