@@ -1,0 +1,14 @@
+// Las dependencias pueden resolverse a la ruta larga C: aunque el build use SUBST.
+// Colocar también sus directorios CMake en la raíz corta evita entradas prefab >260.
+gradle.beforeProject { project ->
+  project.plugins.withId('com.android.library') {
+    project.extensions.getByName('androidComponents').finalizeDsl { android ->
+      if (android.externalNativeBuild.cmake.path != null) {
+        android.externalNativeBuild.cmake.buildStagingDirectory = new File(project.rootProject.projectDir, ".cxx/${project.name}")
+        def args = android.defaultConfig.externalNativeBuild.cmake.arguments
+        args.removeAll { it.startsWith('-DCMAKE_OBJECT_PATH_MAX=') }
+        args.add('-DCMAKE_OBJECT_PATH_MAX=240')
+      }
+    }
+  }
+}

@@ -5,7 +5,11 @@ node_modules/
 tmp/
 dist/
 deliverables/*.apk
+deliverables/*.zip
+deliverables/*.webm
+deliverables/*.mp4
 backend/data/
+backend/data-*/
 android/.gradle/
 android/build/
 android/app/build/

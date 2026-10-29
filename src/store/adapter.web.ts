@@ -1,4 +1,5 @@
 import type { LocalAdapter, StoredRow } from "./repository";
+export const localStorageName = "IndexedDB";
 
 export function makeAdapter(): LocalAdapter {
   let opening: Promise<IDBDatabase> | undefined;

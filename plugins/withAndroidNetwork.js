@@ -2,8 +2,23 @@ const {
   withAndroidManifest,
   withGradleProperties,
   withAppBuildGradle,
+  withProjectBuildGradle,
 } = require("expo/config-plugins");
 module.exports = function withAndroidNetwork(config) {
+  config = withProjectBuildGradle(config, (result) => {
+    if (
+      !result.modResults.contents.includes("Fieldkit: WatermelonDB BuildConfig")
+    )
+      result.modResults.contents += `
+// Fieldkit: WatermelonDB BuildConfig con Android Gradle Plugin 9.
+subprojects { subproject ->
+  subproject.plugins.withId("com.android.library") {
+    if (subproject.name == "nozbe_watermelondb") subproject.android.buildFeatures.buildConfig = true
+  }
+}
+`;
+    return result;
+  });
   config = withAndroidManifest(config, (result) => {
     const app = result.modResults.manifest.application[0].$;
     // El stub de laboratorio puede usarse por HTTP en una LAN sin Internet.
@@ -25,11 +40,11 @@ module.exports = function withAndroidNetwork(config) {
   });
   return withAppBuildGradle(config, (result) => {
     const abi =
-      "ndk { abiFilters(*((findProperty('reactNativeArchitectures') ?: 'arm64-v8a').split(','))) }";
+      "ndk { abiFilters(*((findProperty('reactNativeArchitectures') ?: 'arm64-v8a,x86_64').split(','))) }";
     if (!result.modResults.contents.includes(abi))
       result.modResults.contents = result.modResults.contents.replace(
         "defaultConfig {",
-        `defaultConfig {\n        ${abi}`,
+        `defaultConfig {\n        ${abi}\n        externalNativeBuild { cmake { arguments "-DCMAKE_OBJECT_PATH_MAX=240" } }`,
       );
     return result;
   });

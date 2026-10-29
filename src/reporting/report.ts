@@ -4,11 +4,14 @@ import * as Sharing from "expo-sharing";
 import { Device, Diagnostic, Installation } from "../domain/types";
 import { store } from "../store/database";
 import { reportHtml } from "./html";
+import { nativeNetwork } from "../services/network";
 export async function generateReport(
   installation: Installation,
 ): Promise<string> {
   if (!FileSystem.documentDirectory)
-    throw new Error("Generá el PDF desde Expo Go en tu teléfono.");
+    throw new Error(
+      "No está disponible el almacenamiento privado para generar el PDF.",
+    );
   const device = await store.get<Device>("device", installation.deviceId);
   const diagnostics = (await store.all<Diagnostic>("diagnostic"))
     .filter(
@@ -41,4 +44,9 @@ export async function shareReport(uri: string) {
     mimeType: "application/pdf",
     dialogTitle: "Reporte de instalación",
   });
+}
+export async function openReport(uri: string) {
+  const network = nativeNetwork();
+  if (network.openPdf) await network.openPdf(uri);
+  else await shareReport(uri);
 }

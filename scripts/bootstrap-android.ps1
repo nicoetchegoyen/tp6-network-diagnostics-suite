@@ -42,6 +42,6 @@ $env:SKIP_JDK_VERSION_CHECK = '1'
 # Android SDK solicita aceptar sus licencias; este script automatiza el entorno de build local.
 (1..100 | ForEach-Object { 'y' }) | & $manager --sdk_root=$sdkDir --licenses
 if ($LASTEXITCODE -ne 0) { throw 'No se pudieron aceptar las licencias Android.' }
-& $manager --sdk_root=$sdkDir 'platform-tools' 'platforms;android-36' 'build-tools;36.0.0' 'ndk;27.1.12297006' 'cmake;3.22.1'
+& $manager --sdk_root=$sdkDir 'platform-tools' 'platforms;android-36' 'platforms;android-37.0' 'build-tools;37.0.0' 'ndk;27.1.12297006' 'cmake;3.22.1'
 if ($LASTEXITCODE -ne 0) { throw 'No se pudo instalar Android SDK.' }
 Write-Host 'Toolchain listo en .tools/'

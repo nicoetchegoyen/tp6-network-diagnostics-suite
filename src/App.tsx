@@ -47,6 +47,7 @@ import {
 import { ipv4ToInt, parseEquipmentCode } from "./domain/network";
 import { findEquipment } from "./domain/equipment";
 import { store } from "./store/database";
+import { localStorageName } from "./store/adapter";
 import {
   discover,
   nativeNetwork,
@@ -59,7 +60,7 @@ import {
 import { COMMANDS, Vendor } from "./protocol/commands";
 import { formatUptime } from "./protocol/snmp";
 import { locate, retainPhoto } from "./services/evidence";
-import { generateReport, shareReport } from "./reporting/report";
+import { generateReport, shareReport, openReport } from "./reporting/report";
 import {
   backendHealth,
   createSync,
@@ -91,6 +92,7 @@ function notify(title: string, text: string) {
   else Alert.alert(title, text);
 }
 function AppContent() {
+  const emulated = !!nativeNetwork().runtimeInfo?.().emulator;
   const [tab, setTab] = useState<Tab>("network"),
     [ready, setReady] = useState(false),
     [fatal, setFatal] = useState("");
@@ -155,6 +157,14 @@ function AppContent() {
   }, []);
   const syncNow = useCallback(
     async (silent = false, force = !silent) => {
+      if (!connectedRef.current) {
+        if (!silent)
+          notify(
+            "Sin conexión",
+            "Tus datos están guardados. La cola se enviará cuando vuelva la conexión.",
+          );
+        return;
+      }
       if (!settingsRef.current.backendUrl) {
         if (!silent)
           notify(
@@ -640,6 +650,16 @@ function AppContent() {
                 </View>
               ))}
             </View>
+            {emulated && (
+              <Card>
+                <Label>DEMOSTRACIÓN EN EMULADOR</Label>
+                <Text style={s.body}>
+                  Android virtual en la PC. La cámara y la ubicación son
+                  simuladas; se indican así en el PDF. Los diagnósticos
+                  consultan por sockets al equipo configurado.
+                </Text>
+              </Card>
+            )}
             {!directNetworkAvailable && (
               <Card>
                 <Label>EXPO GO · CONEXIÓN CON TU COMPUTADORA</Label>
@@ -875,6 +895,7 @@ function AppContent() {
                 <Label>2 / UBICACIÓN Y EVIDENCIA</Label>
                 {location && (
                   <Badge>
+                    {location.simulated ? "Ubicación simulada · " : ""}
                     {location.latitude.toFixed(5)},{" "}
                     {location.longitude.toFixed(5)} ·{" "}
                     {precision(location.accuracy)}
@@ -907,7 +928,8 @@ function AppContent() {
                         <Icon name="close" size={16} color="white" />
                       </Pressable>
                       <Text style={[s.caption, { fontSize: 10 }]}>
-                        GPS · {precision(p.location.accuracy)}
+                        {p.location.simulated ? "GPS simulado" : "GPS"} ·{" "}
+                        {precision(p.location.accuracy)}
                       </Text>
                     </View>
                   ))}
@@ -962,7 +984,10 @@ function AppContent() {
                   </View>
                 </View>
                 <Text style={s.body}>{i.notes}</Text>
-                <Badge>{i.photos.length} fotos · GPS registrado</Badge>
+                <Badge>
+                  {i.photos.length} fotos ·{" "}
+                  {i.location.simulated ? "GPS simulado" : "GPS registrado"}
+                </Badge>
                 <Text style={s.caption}>
                   {devices.find((d) => d.id === i.deviceId)?.name || i.deviceId}
                 </Text>
@@ -972,6 +997,16 @@ function AppContent() {
                   </Text>
                 )}
                 <View style={a.chips}>
+                  {directNetworkAvailable && i.pdfUri && (
+                    <Button
+                      small
+                      title="Ver PDF"
+                      icon="eye-outline"
+                      onPress={() =>
+                        void task(i.id, () => openReport(i.pdfUri!))
+                      }
+                    />
+                  )}
                   <Button
                     small
                     secondary
@@ -1664,7 +1699,11 @@ function AppContent() {
           />
         </Card>
         <Card>
-          <Label>SERVIDOR Y PUENTE DE RED</Label>
+          <Label>
+            {directNetworkAvailable
+              ? "SERVIDOR DE SINCRONIZACIÓN"
+              : "SERVIDOR Y PUENTE DE RED"}
+          </Label>
           <Field
             label="URL del servidor"
             placeholder="http://192.168.1.10:8787"
@@ -1684,9 +1723,9 @@ function AppContent() {
             autoCapitalize="none"
           />
           <Text style={s.caption}>
-            Iniciá npm start en tu computadora. El iPhone y la PC deben estar en
-            la misma Wi-Fi. Permití el acceso de Expo Go a la red local si iOS
-            lo solicita. Usá HTTPS fuera del laboratorio.
+            {directNetworkAvailable
+              ? "Este servidor recibe los registros y adjuntos pendientes. Los diagnósticos SNMP y SSH funcionan directamente desde Android. Usá HTTPS fuera del laboratorio."
+              : "Iniciá npm start en tu computadora. El iPhone y la PC deben estar en la misma Wi-Fi. Permití el acceso de Expo Go a la red local si iOS lo solicita. Usá HTTPS fuera del laboratorio."}
           </Text>
           <Button
             title="Probar conexión"
@@ -1781,10 +1820,10 @@ function AppContent() {
           onPress={() => void task("settings", saveSettings)}
         />
         <Text style={s.caption}>
-          Fieldkit 1.0.0 · TP6 · React Native
+          Fieldkit 1.1.0 · TP6 · React Native
           {Platform.OS === "web"
             ? "\nVista web: diagnósticos mediante la PC. Fotos, GPS y PDF se prueban en Expo Go. Las credenciales solo se conservan en memoria."
-            : `\n${Platform.OS === "ios" ? "iPhone" : "Android"} · SQLite de Expo · Funciona en Expo Go`}
+            : `\n${Platform.OS === "ios" ? "iPhone" : "Android"} · ${localStorageName} · ${directNetworkAvailable ? "APK con red nativa" : "Vista complementaria en Expo Go"}`}
         </Text>
       </Sheet>
       <Sheet

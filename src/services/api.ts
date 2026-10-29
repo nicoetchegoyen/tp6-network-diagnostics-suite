@@ -81,7 +81,9 @@ export async function useServerConflict(
     throw new Error("El servidor no devolvió datos para este conflicto.");
   if (action.kind === "installation") {
     if (!FileSystem.documentDirectory)
-      throw new Error("Restaurá la evidencia desde Expo Go en tu teléfono.");
+      throw new Error(
+        "No está disponible el almacenamiento privado para restaurar evidencia.",
+      );
     const dir = `${FileSystem.documentDirectory}remote-evidence/`;
     await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
     const token = await secrets.get("backend-token");

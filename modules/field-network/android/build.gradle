@@ -4,7 +4,11 @@ group = 'ar.edu.fcyt.fieldkit.network'
 version = '1.0.0'
 android {
   namespace 'ar.edu.fcyt.fieldkit.network'
-  defaultConfig { versionCode 1; versionName '1.0.0' }
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+    consumerProguardFiles 'consumer-rules.pro'
+  }
 }
 dependencies {
   implementation 'com.github.mwiede:jsch:0.2.26'

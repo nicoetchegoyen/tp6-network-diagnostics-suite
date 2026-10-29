@@ -2,7 +2,7 @@ module.exports = {
   expo: {
     name: "Fieldkit · Network Diagnostics",
     slug: "network-diagnostics-suite",
-    version: "1.0.0",
+    version: "1.1.0",
     orientation: "portrait",
     userInterfaceStyle: "light",
     ios: {
@@ -16,7 +16,7 @@ module.exports = {
     },
     android: {
       package: "ar.edu.fcyt.fieldkit",
-      versionCode: 1,
+      versionCode: 2,
       permissions: [
         "INTERNET",
         "ACCESS_NETWORK_STATE",
@@ -56,7 +56,7 @@ module.exports = {
     web: { bundler: "metro", name: "Fieldkit" },
     extra: {
       scope:
-        "Expo Go iOS/Android. Diagnósticos de red mediante el puente de la computadora.",
+        "Entrega Android APK: sockets UDP/TCP y SSH nativos, WatermelonDB y sincronización. Vista iPhone complementaria en Expo Go mediante puente.",
     },
   },
 };

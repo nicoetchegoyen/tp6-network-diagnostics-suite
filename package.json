@@ -1,6 +1,6 @@
 {
   "name": "network-diagnostics-suite",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "main": "index.ts",
   "scripts": {
@@ -14,11 +14,15 @@
     "test": "tsx --test tests/*.test.ts",
     "backend": "node backend/server.mjs",
     "lab": "tsx scripts/snmp-agent.ts",
+    "lab:host": "tsx scripts/snmp-host-agent.ts",
+    "demo:android": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-android-demo.ps1",
+    "backend:android": "node scripts/android-demo-server.mjs",
     "build:apk": "powershell -ExecutionPolicy Bypass -File scripts/build-apk.ps1",
     "format": "prettier --write src tests backend scripts/*.ts scripts/*.mjs scripts/*.cjs *.js *.json docs/*.md README.md"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
+    "@nozbe/watermelondb": "0.28.0",
     "@react-native-community/netinfo": "12.0.1",
     "bonjour-service": "^1.4.4",
     "buffer": "^6.0.3",

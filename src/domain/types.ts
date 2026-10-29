@@ -22,6 +22,7 @@ export type Datasheet = {
   cachedAt: number;
 };
 export type Coordinates = {
+  simulated?: boolean;
   latitude: number;
   longitude: number;
   accuracy: number | null;

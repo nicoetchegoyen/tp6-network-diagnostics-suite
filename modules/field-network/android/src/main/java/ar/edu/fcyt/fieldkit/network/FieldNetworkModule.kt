@@ -1,6 +1,8 @@
 package ar.edu.fcyt.fieldkit.network
 
 import android.content.Context
+import android.content.Intent
+import android.os.Build
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import android.net.wifi.WifiManager
@@ -23,6 +25,13 @@ class FieldNetworkModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("FieldNetwork")
     Events("scanProgress")
+    Function("runtimeInfo") {
+      mapOf("emulator" to (Build.HARDWARE in listOf("ranchu", "goldfish") || Build.FINGERPRINT.startsWith("generic") || Build.MODEL.contains("Emulator")))
+    }
+    AsyncFunction("openPdf") { uri: String ->
+      val context = appContext.reactContext ?: throw IllegalStateException("Contexto no disponible")
+      context.startActivity(Intent(context, PdfPreviewActivity::class.java).putExtra("uri", uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
     AsyncFunction("networkInfo") {
       val addresses = NetworkInterface.getNetworkInterfaces().toList().filter { it.isUp && !it.isLoopback }.sortedBy { if (it.name.startsWith("wlan") || it.name.startsWith("wifi")) 0 else 1 }.flatMap { it.interfaceAddresses }.filter { it.address is Inet4Address }
       val a = addresses.firstOrNull { it.address.isSiteLocalAddress } ?: addresses.firstOrNull()
@@ -55,12 +64,10 @@ class FieldNetworkModule : Module() {
         val futures = hosts.map { host -> pool.submit {
           if (!cancelled.get()) {
             val open = mutableListOf<Int>(); var active = false; var source = "tcp"
-            for (port in listOf(22, 80, 443)) {
+            for (port in listOf(22, 80, 443, 8291)) {
               if (cancelled.get()) break
               try { Socket().use { it.connect(InetSocketAddress(host, port), timeout); open.add(port); active = true } }
-              catch (e: ConnectException) { if (e.message?.contains("refused", true) == true) active = true }
               catch (_: Exception) {}
-              if (active && open.isEmpty()) break
             }
             if (!active && !cancelled.get()) {
               source = "udp"
@@ -72,7 +79,7 @@ class FieldNetworkModule : Module() {
                   socket.receive(DatagramPacket(ByteArray(65535), 65535))
                   active = true
                 }
-              } catch (_: PortUnreachableException) { active = true } catch (_: Exception) {}
+              } catch (_: Exception) {}
             }
             if (active) results.add(mapOf("ip" to host, "ports" to open, "source" to source, "mac" to arpMac(host)))
           }
@@ -108,7 +115,7 @@ class FieldNetworkModule : Module() {
                   override fun onResolveFailed(i: NsdServiceInfo, code: Int) { latch.countDown() }
                   override fun onServiceResolved(i: NsdServiceInfo) {
                     val host = i.host?.hostAddress
-                    if (host != null && i.host is Inet4Address) results.add(mapOf("ip" to host, "hostname" to i.serviceName, "ports" to listOf(i.port), "source" to "mdns", "mac" to arpMac(host)))
+                    if (host != null && i.host is Inet4Address) results.add(mapOf("ip" to host, "serviceName" to i.serviceName, "ports" to listOf(i.port), "source" to "mdns", "mac" to arpMac(host)))
                     latch.countDown()
                   }
                 }); latch.await(2, TimeUnit.SECONDS) } catch (_: Exception) {}

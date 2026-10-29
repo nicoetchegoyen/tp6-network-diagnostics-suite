@@ -1,0 +1,31 @@
+FIELDKIT - TP6 - APK ANDROID 1.1.0
+Compilacion: 28/10/2026, assembleRelease correcto (Gradle 9.4.1).
+Paquete: ar.edu.fcyt.fieldkit
+versionName: 1.1.0 / versionCode: 2
+minSdk: 24 / targetSdk: 36 / compileSdk: 37
+ABIs: arm64-v8a y x86_64
+Tamano: 59993688 bytes
+SHA-256 APK: 408835e7d023ee8662ed75516f41d5840eb90563c2e9fd981125692d587aed4f
+Firma: Android Debug (build de prueba); verificada con apksigner.
+SHA-256 certificado: fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c
+zipalign -c -P 16 4: correcto.
+JavaScript/Hermes incluido; no usa Metro ni Expo Go.
+
+VERIFICACION
+TypeScript: correcto. Pruebas automatizadas: 30/30 correctas.
+Instalacion en Android Emulator 15/API35 x86_64: correcta.
+WatermelonDB/SQLite nativo: registros persisten tras reiniciar offline.
+Descubrimiento de 192.168.1.4 por UDP y SNMP exitoso: comprobados desde APK.
+sysName Nicolas; interfaces Windows 13,17,28 y contadores reales.
+SSH directo: huella contrastada y uptime ejecutado en servidor local de prueba.
+Foto emulada y GPS simulado: capturados sin conexion, marcados como simulados.
+PDF de tres paginas: generado y abierto sin conexion.
+Reconectar: cola vacia automatica; backend recibio JPEG y PDF.
+Grabador del emulador: WebM breve de verificacion guardado correctamente.
+
+LIMITES
+No se probo en Android fisico ni en router fisico.
+Camara/GPS son simulados; no acreditan una visita de campo.
+QR/barcode implementado; lectura optica en telefono fisico no verificada.
+El video final debe grabarse y revisarse antes de entregar.
+Detalle: docs/VERIFICACION_ANDROID.md.

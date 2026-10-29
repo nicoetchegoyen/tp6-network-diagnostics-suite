@@ -7,6 +7,17 @@ import { createGateway } from "./network.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const CATALOG = {
+  "PC-REAL": {
+    vendor: "Laboratorio local",
+    model: "PC Windows real",
+    description:
+      "Computadora física consultada por SNMP mediante el agente incluido. Sus interfaces y contadores se leen de Windows; no representa un router ni usa contadores sintéticos.",
+    specs: {
+      SNMP: "v1 / v2c · UDP 1162",
+      Fuente: "Get-NetAdapterStatistics",
+      Identidad: "Nombre e índices de interfaces de Windows",
+    },
+  },
   HG8245H: {
     vendor: "Huawei",
     model: "EchoLife HG8245H",

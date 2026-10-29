@@ -8,6 +8,8 @@ import { secrets } from "./secure";
 import { createNetworkGateway } from "./gateway";
 type Found = Pick<Device, "ip" | "ports" | "source"> & Partial<Device>;
 type Bridge = {
+  runtimeInfo?(): { emulator: boolean };
+  openPdf?(uri: string): Promise<void>;
   networkInfo(): Promise<{ ip?: string; prefix: number }>;
   exchangeUdp(
     host: string,
@@ -113,7 +115,7 @@ export async function discover(
     return [...map.values()].map((d) => ({
       ...d,
       id: uid(),
-      name: d.hostname || d.ip,
+      name: d.hostname || d.serviceName || d.ip,
       lastSeen: Date.now(),
       site: settings.site,
     }));
