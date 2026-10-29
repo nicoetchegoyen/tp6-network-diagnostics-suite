@@ -4,10 +4,8 @@ import {
   Alert,
   AppState,
   Image,
-  KeyboardAvoidingView,
   Linking,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -54,8 +52,6 @@ import {
   runSSH,
   snmp,
   snmpConfig,
-  configureNetwork,
-  directNetworkAvailable,
 } from "./services/network";
 import { COMMANDS, Vendor } from "./protocol/commands";
 import { formatUptime } from "./protocol/snmp";
@@ -88,8 +84,7 @@ const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const precision = (accuracy: number | null) =>
   accuracy === null ? "precisión no informada" : `±${Math.round(accuracy)} m`;
 function notify(title: string, text: string) {
-  if (Platform.OS === "web") window.alert(`${title}\n${text}`);
-  else Alert.alert(title, text);
+  Alert.alert(title, text);
 }
 function AppContent() {
   const emulated = !!nativeNetwork().runtimeInfo?.().emulator;
@@ -99,7 +94,6 @@ function AppContent() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS),
     settingsRef = useRef(settings);
   settingsRef.current = settings;
-  configureNetwork(() => settingsRef.current.backendUrl);
   const sync = useRef(createSync(() => settingsRef.current)).current;
   const [devices, setDevices] = useState<Device[]>([]),
     [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]),
@@ -660,22 +654,6 @@ function AppContent() {
                 </Text>
               </Card>
             )}
-            {!directNetworkAvailable && (
-              <Card>
-                <Label>EXPO GO · CONEXIÓN CON TU COMPUTADORA</Label>
-                <Text style={s.body}>
-                  Las fotos, el GPS, los PDF y tus registros se guardan en este
-                  teléfono. El escaneo, SNMP y SSH se ejecutan desde la
-                  computadora conectada a la red del equipo.
-                </Text>
-                <Button
-                  title="Configurar conexión y sitio"
-                  icon="options-outline"
-                  secondary
-                  onPress={() => setShowSettings(true)}
-                />
-              </Card>
-            )}
             <Section title="Explorar la red" detail="mDNS · TCP/UDP" />
             <Card>
               <Field
@@ -997,7 +975,7 @@ function AppContent() {
                   </Text>
                 )}
                 <View style={a.chips}>
-                  {directNetworkAvailable && i.pdfUri && (
+                  {i.pdfUri && (
                     <Button
                       small
                       title="Ver PDF"
@@ -1475,16 +1453,13 @@ function AppContent() {
                             ),
                           );
                       const text = `${selectedDevice.ip}:${port}\n${fingerprint}\n${previous && previous !== fingerprint ? "ATENCIÓN: la clave cambió. " : ""}Compará esta huella por un canal confiable antes de aceptarla.`;
-                      if (Platform.OS === "web") {
-                        if (window.confirm(text)) accept();
-                      } else
-                        Alert.alert("Verificar identidad SSH", text, [
-                          { text: "Cancelar", style: "cancel" },
-                          {
-                            text: "Aceptar huella verificada",
-                            onPress: accept,
-                          },
-                        ]);
+                      Alert.alert("Verificar identidad SSH", text, [
+                        { text: "Cancelar", style: "cancel" },
+                        {
+                          text: "Aceptar huella verificada",
+                          onPress: accept,
+                        },
+                      ]);
                     })
                   }
                 />
@@ -1699,11 +1674,7 @@ function AppContent() {
           />
         </Card>
         <Card>
-          <Label>
-            {directNetworkAvailable
-              ? "SERVIDOR DE SINCRONIZACIÓN"
-              : "SERVIDOR Y PUENTE DE RED"}
-          </Label>
+          <Label>SERVIDOR DE SINCRONIZACIÓN</Label>
           <Field
             label="URL del servidor"
             placeholder="http://192.168.1.10:8787"
@@ -1723,9 +1694,9 @@ function AppContent() {
             autoCapitalize="none"
           />
           <Text style={s.caption}>
-            {directNetworkAvailable
-              ? "Este servidor recibe los registros y adjuntos pendientes. Los diagnósticos SNMP y SSH funcionan directamente desde Android. Usá HTTPS fuera del laboratorio."
-              : "Iniciá npm start en tu computadora. El iPhone y la PC deben estar en la misma Wi-Fi. Permití el acceso de Expo Go a la red local si iOS lo solicita. Usá HTTPS fuera del laboratorio."}
+            Este servidor recibe los registros y adjuntos pendientes. Los
+            diagnósticos SNMP y SSH funcionan directamente desde Android. Usá
+            HTTPS fuera del laboratorio.
           </Text>
           <Button
             title="Probar conexión"
@@ -1820,10 +1791,8 @@ function AppContent() {
           onPress={() => void task("settings", saveSettings)}
         />
         <Text style={s.caption}>
-          Fieldkit 1.1.0 · TP6 · React Native
-          {Platform.OS === "web"
-            ? "\nVista web: diagnósticos mediante la PC. Fotos, GPS y PDF se prueban en Expo Go. Las credenciales solo se conservan en memoria."
-            : `\n${Platform.OS === "ios" ? "iPhone" : "Android"} · ${localStorageName} · ${directNetworkAvailable ? "APK con red nativa" : "Vista complementaria en Expo Go"}`}
+          Fieldkit 1.1.1 · TP6 · React Native
+          {`\nAndroid · ${localStorageName} · Red nativa`}
         </Text>
       </Sheet>
       <Sheet
@@ -1891,10 +1860,7 @@ function Sheet({
       onRequestClose={onClose}
     >
       <SafeAreaView style={a.root}>
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
+        <View style={{ flex: 1 }}>
           <View style={a.sheetHeader}>
             <View style={{ flex: 1, gap: 4 }}>
               <Text style={s.h2}>{title}</Text>
@@ -1916,7 +1882,7 @@ function Sheet({
               {children}
             </ScrollView>
           )}
-        </KeyboardAvoidingView>
+        </View>
       </SafeAreaView>
     </Modal>
   );
@@ -2156,7 +2122,7 @@ const a = StyleSheet.create({
   },
   deviceName: { fontSize: 16, fontWeight: "600", color: C.ink },
   mono: {
-    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+    fontFamily: "monospace",
     fontSize: 13,
     color: C.muted,
     lineHeight: 21,

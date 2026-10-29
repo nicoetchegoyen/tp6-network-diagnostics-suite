@@ -1,11 +1,10 @@
-import { requireOptionalNativeModule } from "expo";
+import { requireNativeModule } from "expo";
 import { Buffer } from "buffer";
 import { Device, Settings, uid } from "../domain/types";
 import { subnetHosts } from "../domain/network";
 import { encodeMessage, OIDS, SnmpClient } from "../protocol/snmp";
 import { diagnosticCommand, Vendor } from "../protocol/commands";
 import { secrets } from "./secure";
-import { createNetworkGateway } from "./gateway";
 type Found = Pick<Device, "ip" | "ports" | "source"> & Partial<Device>;
 type Bridge = {
   runtimeInfo?(): { emulator: boolean };
@@ -45,15 +44,9 @@ type Bridge = {
     cb: (event: { completed: number; total: number; found: number }) => void,
   ): { remove(): void };
 };
-const bridge = requireOptionalNativeModule<Bridge>("FieldNetwork");
-export const directNetworkAvailable = !!bridge;
-let getBackendUrl = () => "";
-export function configureNetwork(getUrl: () => string) {
-  getBackendUrl = getUrl;
-}
-const gateway = createNetworkGateway(() => getBackendUrl());
+const bridge = requireNativeModule<Bridge>("FieldNetwork");
 export function nativeNetwork(): Bridge {
-  return bridge || gateway;
+  return bridge;
 }
 export const snmp = new SnmpClient(async (host, port, packet, timeout) =>
   Buffer.from(

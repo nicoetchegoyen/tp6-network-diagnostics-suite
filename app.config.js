@@ -2,21 +2,13 @@ module.exports = {
   expo: {
     name: "Fieldkit · Network Diagnostics",
     slug: "network-diagnostics-suite",
-    version: "1.1.0",
+    version: "1.1.1",
     orientation: "portrait",
     userInterfaceStyle: "light",
-    ios: {
-      bundleIdentifier: "ar.edu.fcyt.fieldkit",
-      supportsTablet: true,
-      infoPlist: {
-        NSLocalNetworkUsageDescription:
-          "Conectar con el servidor de Fieldkit en tu computadora para diagnósticos y sincronización.",
-        NSAppTransportSecurity: { NSAllowsLocalNetworking: true },
-      },
-    },
+    platforms: ["android"],
     android: {
       package: "ar.edu.fcyt.fieldkit",
-      versionCode: 2,
+      versionCode: 3,
       permissions: [
         "INTERNET",
         "ACCESS_NETWORK_STATE",
@@ -49,14 +41,8 @@ module.exports = {
       "expo-asset",
       "expo-font",
       "expo-sharing",
-      "expo-sqlite",
       "expo-status-bar",
       "./plugins/withAndroidNetwork",
     ],
-    web: { bundler: "metro", name: "Fieldkit" },
-    extra: {
-      scope:
-        "Entrega Android APK: sockets UDP/TCP y SSH nativos, WatermelonDB y sincronización. Vista iPhone complementaria en Expo Go mediante puente.",
-    },
   },
 };

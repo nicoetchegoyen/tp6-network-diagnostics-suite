@@ -3,7 +3,6 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash, timingSafeEqual } from "node:crypto";
-import { createGateway } from "./network.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const CATALOG = {
@@ -42,26 +41,11 @@ const CATALOG = {
     },
     url: "https://mikrotik.com/product/RB750Gr3",
   },
-  "LAB-001": {
-    vendor: "Laboratorio TP6",
-    model: "Agente SNMP de prueba",
-    description:
-      "Equipo de laboratorio incluido en el repositorio. No representa un descubrimiento real.",
-    specs: {
-      SNMP: "v1 / v2c",
-      Puerto: "1161",
-      Community: "public",
-      Interfaces: "eth0, wlan0",
-    },
-  },
 };
 export async function createBackend({
   dataDir = process.env.DATA_DIR || path.join(here, "data"),
   token = process.env.SYNC_TOKEN || "",
-  gateway = process.env.NETWORK_GATEWAY === "1",
 } = {}) {
-  if (gateway && !token) throw new Error("El puente de red requiere un token.");
-  const network = gateway ? createGateway() : undefined;
   await fs.mkdir(path.join(dataDir, "assets"), { recursive: true });
   const dbFile = path.join(dataDir, "state.json");
   let state;
@@ -107,44 +91,7 @@ export async function createBackend({
           ok: true,
           service: "fieldkit-sync",
           entities: Object.keys(state.entities).length,
-          gateway: !!network,
         });
-      if (req.method === "POST" && url.pathname.startsWith("/v1/network/")) {
-        if (!network)
-          return reply(res, 503, {
-            error:
-              "Iniciá la app con npm start para habilitar el puente de red.",
-          });
-        let size = 0;
-        const chunks = [];
-        for await (const chunk of req) {
-          size += chunk.length;
-          if (size > 128 * 1024) {
-            reply(res, 413, { error: "Solicitud de red demasiado grande." });
-            req.resume();
-            return;
-          }
-          chunks.push(chunk);
-        }
-        let input;
-        try {
-          input = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-        } catch {
-          return reply(res, 400, { error: "JSON inválido." });
-        }
-        if (!input || typeof input !== "object" || Array.isArray(input))
-          return reply(res, 422, { error: "Solicitud inválida." });
-        try {
-          return reply(res, 200, {
-            result: await network(
-              url.pathname.slice("/v1/network/".length),
-              input,
-            ),
-          });
-        } catch (error) {
-          return reply(res, error.status || 502, { error: error.message });
-        }
-      }
       if (req.method === "GET" && url.pathname.startsWith("/v1/catalog/")) {
         const code = decodeURIComponent(
           url.pathname.slice("/v1/catalog/".length),
@@ -318,7 +265,7 @@ if (
 ) {
   createBackend()
     .then((server) => {
-      const port = Number(process.env.PORT || 8787),
+      const port = Number(process.env.PORT || 8790),
         host = process.env.HOST || "0.0.0.0";
       server.listen(port, host, () =>
         console.log(

@@ -8,6 +8,13 @@
     "noUncheckedIndexedAccess": false,
     "types": ["node"]
   },
-  "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules", "android", "legacy", ".cache", ".tools"]
+  "include": [
+    "index.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "tests/**/*.ts",
+    "scripts/host-mib.ts",
+    "scripts/snmp-host-agent.ts"
+  ],
+  "exclude": ["node_modules", "android", ".cache", ".tools"]
 }

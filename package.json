@@ -1,30 +1,24 @@
 {
   "name": "network-diagnostics-suite",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "main": "index.ts",
   "scripts": {
-    "start": "node scripts/start-expo.mjs",
-    "start:client": "expo start --go --lan",
+    "start": "expo start --dev-client",
     "android": "expo run:android",
     "preandroid": "node scripts/prepare-native.cjs",
-    "web": "expo start --web",
     "prebuild": "expo prebuild --platform android --no-install",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
     "backend": "node backend/server.mjs",
-    "lab": "tsx scripts/snmp-agent.ts",
     "lab:host": "tsx scripts/snmp-host-agent.ts",
-    "demo:android": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-android-demo.ps1",
-    "backend:android": "node scripts/android-demo-server.mjs",
     "build:apk": "powershell -ExecutionPolicy Bypass -File scripts/build-apk.ps1",
-    "format": "prettier --write src tests backend scripts/*.ts scripts/*.mjs scripts/*.cjs *.js *.json docs/*.md README.md"
+    "format": "prettier --write src tests backend scripts/*.ts scripts/*.cjs *.js *.json docs/*.md README.md"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
     "@nozbe/watermelondb": "0.28.0",
     "@react-native-community/netinfo": "12.0.1",
-    "bonjour-service": "^1.4.4",
     "buffer": "^6.0.3",
     "expo": "~58.0.20",
     "expo-asset": "~58.0.18",
@@ -36,25 +30,20 @@
     "expo-print": "~58.0.7",
     "expo-secure-store": "~58.0.2",
     "expo-sharing": "~58.0.20",
-    "expo-sqlite": "~58.0.14",
     "expo-status-bar": "~58.0.4",
     "expo-system-ui": "~58.0.6",
     "react": "19.3.0",
-    "react-dom": "19.3.0",
     "react-native": "0.88.0",
-    "react-native-safe-area-context": "~5.10.1",
-    "react-native-web": "^0.21.0",
-    "ssh2": "^1.17.0"
+    "react-native-safe-area-context": "~5.10.1"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@types/node": "^24.0.0",
     "@types/react": "~19.3.0",
-    "@types/ssh2": "^1.15.6",
     "babel-preset-expo": "~58.0.0",
     "prettier": "^3.6.2",
-    "qrcode": "^1.5.4",
     "tsx": "^4.20.6",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "bonjour-service": "^1.4.4"
   }
 }
